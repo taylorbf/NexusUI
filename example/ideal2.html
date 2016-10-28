@@ -1,0 +1,85 @@
+<html>
+	<head>
+		<script src="nexusUI"></script>
+		<script>
+
+		$(function() {
+
+			nx.setContext(Tone.Context)
+			nx.colorize("#0af")
+			nx.tempo(100)
+
+			nx.add(
+				["dial",50,50,100,100,function() {
+					syth1.volume(data.value)
+				}],
+				["dial",50,50,100,100,function() {
+
+				}],
+			)
+
+			ui.dial1.does(function() {
+
+			})
+
+			synth1.volume = function() {
+
+			}
+
+			// NEED to have unique id for each widget, in case extra dial gets added...
+			// NEED to describe in HTML first because there's just too many styling aspects that must be done... float, nested inside divs, etc.
+
+			nx.setup({
+				context: Tone.Context,
+				onload: function() {
+					nx.colorize("#0af")
+				}
+				callbacks: {
+					"dial1": function(data) {
+						// something with data
+					},
+					"position1": function(data) {
+
+					},
+				}
+
+			})
+		})
+
+		$(function() {
+
+			nx.setup({
+				context: Tone.Context,
+				onload: function() {
+					nx.colorize("#0af")
+				}
+				callbacks: {
+					"dial1": function(data) {
+						// something with data
+					},
+					"position1": function(data) {
+
+					},
+				}
+
+			})
+		})
+
+
+		synth1 = {
+			volume: {
+				widget: slider()
+			}
+		}
+
+		</script>
+	</head>
+	<body>
+
+
+		<canvas nx=dial response=synth1.vol min=100 max=1000 function() {
+			//do something with data.x
+		}></canvas>
+
+	</body>
+</html>

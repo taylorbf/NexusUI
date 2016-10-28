@@ -19,25 +19,24 @@ gulp.task('browserify', function() {
   return browserify({ entries: './index.js' })
     .bundle()
     .on('error', gutil.log)
-    .pipe(source('nexusUI.js'))
+    .pipe(source('mt.js'))
     .pipe(gulp.dest('./dist/'))
 })
-
+/*
 gulp.task('uglify', function() {
-  return gulp.src('./dist/nexusUI.js')
+  return gulp.src('./dist/,mt.js')
     .pipe(uglify())
-    .pipe(rename('nexusUI.min.js'))
+    .pipe(rename('mt.min.js'))
     .pipe(gulp.dest('./dist/'))
 })
-
+*/
+/*
 var logdox = function(err) { err ? console.log(err) : null }
 gulp.task('jsdox', function() {
-  jsdox.generateForDir("dist/nexusUI.js", "./api/", logdox); 
+  jsdox.generateForDir("dist/mt.js", "./api/", logdox);
   //jsdox.generateForDir("lib/widgets", "./api/", logdox);
-})
+}) */
 
 gulp.task('default', function(done) {
-  runSequence('browserify', 'uglify', 'jsdox', done)
+  runSequence('browserify', done)
 })
-
-

@@ -15,11 +15,13 @@ window.nx = extend(window.nx,domUtils)
 window.nx = extend(window.nx,drawingUtils)
 window.nx = extend(window.nx,mathUtils)
 
+// change something.
+
 /* this onload function turns canvases into nexus elements,
  * using the canvas's id as its var name */
 
-window.onload = function() {
-  try {
+nx.init = function() {
+/*  try {
     WebFont.load({
       google: {
         families: ['Open Sans']
@@ -27,7 +29,7 @@ window.onload = function() {
     });
   } catch(e) {
     console.log("font not loaded")
-  }
+  } */
 
   nx.addStylesheet();
 
@@ -39,9 +41,7 @@ window.onload = function() {
     document.addEventListener("touchmove", nx.blockMove, true);
     document.addEventListener("touchstart", nx.blockMove, true);
   }
-  
+
   nx.onload();
 
-  nx.startPulse();
-  
 };

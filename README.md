@@ -1,17 +1,17 @@
-# Nexus UI
+## The Musician's Toolkit
 
-**Authors:** Ben Taylor & Jesse Allison
+**Author:** Ben Taylor
 
-**Contributors:** Yemin Oh, Sébastien Piquemal, Andrew Bernstein, Jason Sigal
+**Contributors:** Andrew Bernstein, Jesse Allison
 
-**Overview:** NexusUI is a JS toolkit for easily designing musical interfaces for mobile apps and web browsers, with emphasis on rapid prototyping and integration with Max/MSP.
+**Overview:**
 
-**Project Site:** http://www.nexusosc.com
+**Project Site:** 
 
-**License:** NexusUI is licensed as open source software under the terms of the "New BSD License", http://creativecommons.org/licenses/BSD/
+**License:** Licensed as open source software under the terms of the "New BSD License", http://creativecommons.org/licenses/BSD/
 
 
-### How to Use NexusUI
+### How to Use
 
 Download nexusUI.js (in the /dist folder of this repo) and link to it in the head of your HTML document. (NexusUI can also be installed via npm (npm install nexusui) and required in a project using CommonJS-style includes.)
 

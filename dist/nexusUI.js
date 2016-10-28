@@ -16,10 +16,12 @@ window.nx = extend(window.nx,domUtils)
 window.nx = extend(window.nx,drawingUtils)
 window.nx = extend(window.nx,mathUtils)
 
+// change something.
+
 /* this onload function turns canvases into nexus elements,
  * using the canvas's id as its var name */
 
-window.onload = function() {
+nx.init = function() {
   try {
     WebFont.load({
       google: {
@@ -42,11 +44,9 @@ window.onload = function() {
   }
   
   nx.onload();
-
-  nx.startPulse();
   
 };
-},{"./lib/core/manager":2,"./lib/utils/dom":4,"./lib/utils/drawing":5,"./lib/utils/math":6,"extend":52,"webfontloader":53}],2:[function(require,module,exports){
+},{"./lib/core/manager":2,"./lib/utils/dom":4,"./lib/utils/drawing":5,"./lib/utils/math":6,"extend":36,"webfontloader":37}],2:[function(require,module,exports){
 
 /** 
   @title NexusUI API
@@ -84,38 +84,10 @@ var manager = module.exports = function() {
   /*  @property {boolean} showLabels Whether or not to draw an automatic text label on each interface component. */
   this.showLabels = false;
   this.starttime = new Date().getTime();
-  if (transmit) {
-    /**  
-    @method sendsTo 
-    @param {string or function} [destination] Protocol for transmitting data from interfaces (i.e. "js", "ajax", "ios", "max", or "node"). Also accepts custom functions.
-    ```js
-    nx.sendsTo("ajax")
-
-    // or
-
-    nx.sendsTo(function(data) {
-         //define a custom transmission function
-    })
-    ```
-    */
-    this.sendsTo = transmit.setGlobalTransmit;
-    /**  
-    @method setAjaxPath 
-    @param {string} [path] If sending via AJAX, define the path to ajax destination
-    */
-    this.setAjaxPath = transmit.setAjaxPath;
-    /**  @property {string} destination NexusUI's transmission protocol (i.e. "js" or "ajax"). Defaults to "js". We recommend setting this property using nx.sendsTo() which ensures that all widgets receive this setting. */
-    this.destination = "js";
-    /**  @property {string} ajaxPath If sending via AJAX, the destination path. Defaults to "lib/nexusOSCRelay.php". We recommend setting this property using nx.setAjaxPath() which ensures that all widgets receive this setting. */
-    this.ajaxPath = "lib/nexusOSCRelay.php";
-  }
 
   /** @property {boolean} isTouchDevice Returns true if page is loaded on a touch device. */
   this.isTouchDevice = ('ontouchstart' in document.documentElement)? true:false;
   this.metas = document.getElementsByTagName('meta');
-
-  /**  @property {boolean} globalWidgets Whether or not to instantiate a global variable for each widget (i.e. button1). Defaults to true. Designers of other softwares who wish to keep nexusUI entirely encapsulated in the nx object may set this property to false. In that case, all widgets are accessible in nx.widgets */
-  this.globalWidgets = true;
 
   this.font = "'open sans'";
   this.fontSize = 14;
@@ -127,12 +99,7 @@ var manager = module.exports = function() {
   this.isAndroid = this.sys.indexOf("android") > -1;
   this.isMobile = this.sys.indexOf("mobile") > -1;
 
-  /**  @property {integer} throttlePeriod Throttle time in ms (for nx.throttle). */
-  this.throttlePeriod = 20;
-
-
   /* extra colors */
-
   this.colors.borderhl = drawingUtils.shadeBlendConvert(-0.5,this.colors.border); // colors.border + [20% Darker] => colors.darkborder 
   this.colors.accenthl = drawingUtils.shadeBlendConvert(0.15,this.colors.accent);    
 
@@ -265,9 +232,7 @@ The "output" instructions for sending a widget's data to another application or 
 */
 
 manager.prototype.transmit = function(data, passive) {
-  //console.log(passive + " manager.transmit")
-    this.makeOSC(this.emit, data, passive);
-    this.emit('*',data, passive);
+  this.emit(data, passive);
 } 
 
 /** 
@@ -304,19 +269,6 @@ manager.prototype.colorize = function(aspect, newCol) {
   }
 
 }
-  
-
-/** @method setThrottlePeriod 
-Set throttle time of nx.throttle, which controls rapid network transmissions of widget data.
-@param {integer} [throttle time] Throttle time in milliseconds. 
-*/
-manager.prototype.setThrottlePeriod = function(newThrottle) {
-  this.throttlePeriod = newThrottle;
-  for (var key in this.widgets) {
-    this.widgets[key].throttlePeriod = this.throttlePeriod;
-  }
-}
-
 
 
   /*  
@@ -333,36 +285,6 @@ manager.prototype.colors = {
   "white": "#FFFFFF"
 };
 
-/**  @method startPulse 
-  Start an animation interval for animated widgets (calls nx.pulse() every 30 ms). Executed by default when NexusUI loads.
-*/
-manager.prototype.startPulse = function() {
-  this.pulseInt = setInterval("nx.pulse()", 30);
-}
-
-/**  @method stopPulse 
-  Stop the animation pulse interval.
-*/
-manager.prototype.stopPulse = function() {
-  clearInterval(this.pulseInt);
-}
-
-/**  @method pulse 
-  Animation pulse which executes all functions stored in the nx.aniItems array.
-*/
-manager.prototype.pulse = function() {
-  for (var i=0;i<this.aniItems.length;i++) {
-    this.aniItems[i]();
-  }
-} 
-
-manager.prototype.addAni = function(fn) {
-
-}
-
-manager.prototype.removeAni = function(fn) {
-  this.aniItems.splice(this.aniItems.indexOf(fn));
-}
   
 manager.prototype.addStylesheet = function() {
   var htmlstr = '<style>'
@@ -374,9 +296,7 @@ manager.prototype.addStylesheet = function() {
     + 'border: solid 2px #e4e4e4;'
     + 'border-radius: 0;'
     + '-webkit-appearance: none;'
-    //+ 'border: 0;'
     + 'outline: none;'
-   // + 'cursor:pointer;'
     + 'background-color:#EEE;'
     + 'font-family:"open sans";'
     + '}'
@@ -386,7 +306,6 @@ manager.prototype.addStylesheet = function() {
     + 'input[type=text]::-webkit-selection { background: transparent; }' 
     + ''
     + 'canvas { '
-   // + 'cursor:pointer;'
     + 'border-radius:0px;'
     + 'moz-border-radius:0px;'
     + 'webkit-border-radius:0px;'
@@ -396,7 +315,6 @@ manager.prototype.addStylesheet = function() {
     + '}'
     + ''
     + 'input[type=text] { '
-   // + 'cursor:pointer;'
     + 'border-radius:5px;'
     + 'moz-border-radius:5px;'
     + 'webkit-border-radius:5px;'
@@ -417,21 +335,6 @@ manager.prototype.setViewport = function(scale) {
     if (this.metas[i].name == "viewport") {
       this.metas[i].content = "minimum-scale="+scale+", maximum-scale="+scale;
     }
-  }
-}
-
-/*  @method setLabels
-    Tell all widgets whether or not draw text labels on widgets
-    @param {boolean} [on/off] true to add labels, false to remove labels
- */
-manager.prototype.setLabels = function(onoff) {
-  if (onoff=="on") {
-    this.showLabels = true;
-  } else {
-    this.showLabels = false;
-  }
-  for (var key in this.widgets) {
-    this.widgets[key].draw()
   }
 }
 
@@ -519,20 +422,33 @@ manager.prototype.labelSize = function(size) {
       }
     }
   }
-  var textLabels = document.querySelectorAll(".nxlabel");
-  console.log(textLabels)
+  var textLabels = document.querySelectorAll(".nxlabel")
  
   for (var i = 0; i < textLabels.length; i++) {
-      console.log(textLabels[i])
       textLabels[i].style.fontSize = size/2.8+"px"
-      console.log(textLabels[i].style.fontSize)
   }
+}
+
+manager.prototype.module = function(params) {
+  /*{
+      parent: "synth1volume",
+      type: "slider",
+      number: "right",
+      label: "Volume",
+      labelOrientation: "bottom",
+      labelAlign: "left",
+      response: function(v) {
+        console.log(v)
+      }
+    } */
+
+
 }
 
 
 
 
-},{"../utils/drawing":5,"../utils/timing":7,"../utils/transmit":8,"../widgets":18,"events":47,"util":51}],3:[function(require,module,exports){
+},{"../utils/drawing":5,"../utils/timing":7,"../utils/transmit":8,"../widgets":13,"events":31,"util":35}],3:[function(require,module,exports){
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
 var domUtils = require('../utils/dom');
@@ -560,13 +476,8 @@ var widget = module.exports = function (target) {
 
   /**  @property {string} canvasID ID attribute of the interface's HTML5 canvas */
   this.canvasID = target;
-  /**  @property {string} oscPath OSC prefix for this interface. By default this is populated using the canvas ID (i.e. an ID of dial1 has OSC path /dial1) */
-  this.oscPath = "/"+target;
-  if (!document.getElementById(target)) {
-    var newcanv = document.createElement("canvas")
-    newcanv.id = target;
-    document.body.appendChild(newcanv)
-  }
+  // var newcanv = document.createElement("canvas")
+
   /**
    * @property {string} type The type of NexusUI widget (i.e. "dial", "toggle", "slider"). Set automatically at creation.
    */
@@ -589,20 +500,6 @@ var widget = module.exports = function (target) {
     /**  @property {object} defaultSize The widget's default size if not defined with HTML/CSS style. (Has properties 'width' and 'height', both in pixels) */
     this.defaultSize = { width: 100, height: 100 };
   }
-  
-  /**  @property {boolean} label Whether or not to draw a text label this widget.   */
-  this.label = false
-  this.labelSize = 30
-  this.labelAlign = "center"
-  this.labelFont = "'Open Sans'"
-
-  if (this.canvas.getAttribute("label")!=null) {
-    this.label = this.canvas.getAttribute("label")
-    this.origDefaultHeight = this.defaultSize.height
-  }
-  if (this.label) {
-    this.defaultSize.height += this.labelSize
-  }
 
   if (this.width==300 && this.height==150) {
     this.canvas.width = this.defaultSize.width*2;
@@ -620,9 +517,6 @@ var widget = module.exports = function (target) {
   this.canvas.style.width = this.canvas.width/2+"px";
   this.canvas.style.height = this.canvas.height/2+"px";
   this.context.scale(2,2)
-
-
-  this.makeRoomForLabel()
 
   /**  @property {object} offset The widget's computed offset from the top left of the document. (Has properties 'top' and 'left', both in pixels) */
   this.offset = domUtils.findPosition(this.canvas);
@@ -642,13 +536,7 @@ var widget = module.exports = function (target) {
   for (var key in nx.colors) {
     this.colors[key] = nx.colors[key]
   }
-  /*this.colors.accent = nx.colors.accent;
-  this.colors.fill = nx.colors.fill;
-  this.colors.border = nx.colors.border;
-  this.colors.accentborder = nx.colors.accentborder;
-  this.colors.black = nx.colors.black;
-  this.colors.white = nx.colors.white; 
-  this.colors.highlight = nx.colors.highlight; */
+ 
   //interaction
   /**  @property {object} clickPos The most recent mouse/touch position when interating with a widget. (Has properties x and y) */
   this.clickPos = {x: 0, y: 0};
@@ -665,32 +553,8 @@ var widget = module.exports = function (target) {
   this.nodePos = new Array();
   /**  @property {object} deltaMove Difference between the current touch/mouse position and the previous touch/mouse position, in pixels.   */
   this.deltaMove = new Object();
-  this.throttlePeriod = nx.throttlePeriod;
-  this.throttle = timingUtils.throttle;
   this.hasMoved = false;
-  //recording
-  /**  @property {boolean} isRecording Whether or not this widget's output is being recorded to a "remix" widget */
-  this.isRecording = false;
-  this.tapeNum = 0;
-  this.recorder = null;
-  //transmission
-  if (transmit) {
-    /**  @method sendsTo
-    Set the transmission protocol for this widget individually 
-    @param {string or function} [destination] Protocol for transmitting data from this widget (i.e. "js", "ajax", "ios", "max", or "node"). Also accepts custom functions.
-    ```js
-    dial1.sendsTo("ajax")
-
-    // or
-
-    dial1.sendsTo(function(data) {
-         //define a custom transmission function
-    })
-    ```  
-    */
-    this.sendsTo = transmit.setWidgetTransmit;
-    this.destination = "js";
-  }
+  
   this.events = new Object();
 
   // Setup interaction
@@ -722,37 +586,10 @@ util.inherits(widget, EventEmitter)
 */
 widget.prototype.transmit = nx.transmit;
 
-/**  @method makeOSC
-    Loops through an object (i.e. a widget's data), creates OSC path/value pairs, and executes a callback function with these two arguments.
-    @param {function} [callback] A function defining the action to be taken with each OSC path/value pair. This function should have two parameters, path (string) and data (type depends on widget data type).
-    @param {object} [data] The data as an object, to be broken into individual OSC messages.
-*/
-widget.prototype.makeOSC = function(action, data) {
-    this.action = action;
-    if ((typeof data == "object") && (data !== null)) {
-      for (var key in data) {
-        if ((typeof data[key] == "object") && (data[key] !== null)) {
-          for (var key2 in data[key]) {
-              this.action(key+"/"+key2, data[key][key2])
-          }
-        } else {
-            this.action(key, data[key])
-        }
-      }
-    } else if (typeof data == "number" || typeof data == "string") {
-        this.action('value', data)
-    }
-}
-
-// getoffset is useful as an API for others
-// otherwise they would have to write
-// dial1.offset = utils.findPosition()
-// now it is simply:
-// dial1.getOffset()
 
 /**  @method getOffset
-    Recalculate the computed offset of the widget's canvas and store it in widget.offset. This is useful if a widget has been moved after being created.
-    */
+  Recalculate the computed offset of the widget's canvas and store it in widget.offset. This is useful if a widget has been moved after being created.
+*/
 widget.prototype.getOffset = function() {
   this.offset = domUtils.findPosition(this.canvas)
 }
@@ -761,8 +598,6 @@ widget.prototype.preClick = function(e) {
   this.actuated = true;
   this.offset = domUtils.findPosition(this.canvas)
   this.clickPos = domUtils.getCursorPosition(e, this.offset);
-  // need something like:
-  // if (this.clickPos.y < this.GUI.h) { 
   document.addEventListener("mousemove", this.preMove, false);
   document.addEventListener("mouseup", this.preRelease, false);
   this.clicked = true;
@@ -774,7 +609,7 @@ widget.prototype.preClick = function(e) {
   document.body.style.userSelect = "none";
   document.body.style.mozUserSelect = "none";
   document.body.style.webkitUserSelect = "none";
-  document.body.style.cursor = "none"
+  document.body.style.cursor = "pointer"
 }
 
 widget.prototype.preMove = function(e) {
@@ -797,7 +632,7 @@ widget.prototype.preRelease = function(e) {
   document.body.style.userSelect = "text";
   document.body.style.mozUserSelect = "text";
   document.body.style.webkitUserSelect = "text";
-  document.body.style.cursor = "pointer"
+  document.body.style.cursor = "default"
 }
 
 widget.prototype.preTouch = function(e) {
@@ -921,12 +756,7 @@ widget.prototype.showCursor = function() {
   this.canvas.style.cursor = "auto";
 }
 
-// allow us to get the constructor function name programatically
-//i.e. if element is a dial, this function will return "dial"
-//deprecated
-widget.prototype.getName = function() {
-  return "deprecated -- use widget.type instead"
-}
+
 
 /** @method set
 Manually set a widget's value (that is, set any properties of a widget's .val). See widget.val or the .val property of individual widgets for more info. 
@@ -1027,38 +857,8 @@ widget.prototype.wrapText = function(text, x, y, maxWidth, lineHeight) {
   }
 }
 
-widget.prototype.drawLabel = function() {
-  if (this.label) {
-    with(this.context) {
-      fillStyle = this.colors.black;
-      textAlign = "center"
-      textBaseline = "middle";
-      font = (this.labelSize/2.8) + "px "+this.labelFont+" normal"
-      fillText(this.label,this.width/2,this.labelY);
-    }
-  }
-}
-
-/**  @method saveCanv
-     Download the widget's current graphical state as an image (png).
-    */
-widget.prototype.saveCanv = function() {
-  var data = this.canvas.toDataURL("image/png").replace("image/png", "image/octet-stream");
-  window.location.href = data
-}
-
-widget.prototype.setFont = function() {
-  with (this.context) {
-      textAlign = "center";
-      font = this.fontWeight+" "+this.fontSize+"px "+this.font;
-      fillStyle = this.colors.black;
-      globalAlpha = 1;
-  }
-}
-
 
 /* Percentage width support */
-
 
 widget.prototype.checkPercentage = function() {
   var wstr = this.canvas.style.width;
@@ -1118,17 +918,7 @@ widget.prototype.normalize = function(value) {
 widget.prototype.rangify = function(value) {
   return nx.scale(value,0,1,this.min,this.max)
 }
-
-
-widget.prototype.makeRoomForLabel = function() {
-  this.GUI = {
-    w: this.width,
-    h: this.label ? this.height - this.labelSize : this.height
-  }
-  this.labelY = this.height - this.labelSize/2;
-  // must add the above code to widget.resize
-}
-},{"../utils/dom":4,"../utils/drawing":5,"../utils/timing":7,"../utils/transmit":8,"events":47,"util":51}],4:[function(require,module,exports){
+},{"../utils/dom":4,"../utils/drawing":5,"../utils/timing":7,"../utils/transmit":8,"events":31,"util":35}],4:[function(require,module,exports){
 
 /** @class utils 
   Shared utility functions. These functions are exposed as methods of nx in NexusUI projects, i.e. .mtof() here can be accessed in your project with nx.mtof().
@@ -1612,91 +1402,6 @@ exports.maxTransmit = function (subPath, data) {
 },{}],9:[function(require,module,exports){
 var util = require('util');
 var widget = require('../core/widget');
-
-/** 
-	@class banner      
-	"Powered by NexusUI" tag with a link to our website. Use it if you want to share the positive vibes of NexusUI. Thanks for using!
-	```html
-	<canvas nx="banner"></canvas>
-	```
-	<canvas nx="banner" style="margin-left:25px"></canvas>
-*/
-
-var banner = module.exports = function (target) {
-	this.defaultSize = { width: 100, height: 40 };
-	widget.call(this, target);
-	
-	//unique attributes
-	/** @property {string} message1 The first line of text on the banner. */
-	this.message1 = "Powered By";
-	/** @property {string} message2 The second line of text on the banner. */
-	this.message2 = "NexusUI";
-	/** @property {string} link The URL the banner will link to. */
-	this.link = "http://www.nexusosc.com";
-	/** @property {boolean} isLink Whether or not the banner is a hyperlink. Defaults to true. */
-	this.isLink = true;
-}
-util.inherits(banner, widget);
-
-banner.prototype.init = function() {
-	this.draw();
-}
-
-banner.prototype.draw = function() {
-	with (this.context) {
-
-		globalAlpha = 0.1;
-		fillStyle = this.colors.accent;
-		beginPath();
-			moveTo(0,10);
-			lineTo(10,this.GUI.h/2+5);
-			lineTo(0,this.GUI.h);
-			lineTo(30,this.GUI.h);
-			lineTo(30,10);
-			fill();
-			moveTo(this.GUI.w-30,10);
-			lineTo(this.GUI.w-30,this.GUI.h);
-			lineTo(this.GUI.w,this.GUI.h);
-			lineTo(this.GUI.w-10,this.GUI.h/2+5);
-			lineTo(this.GUI.w,10);
-			fill();
-		closePath();
-		globalAlpha = 1;
-
-		fillStyle = this.colors.accent;
-		fillRect(15,0,this.GUI.w-30,this.GUI.h-10);
-		
-		fillStyle = this.colors.white;
-		font = this.fontWeight + " " +this.GUI.h/5+"px "+this.font;
-		textAlign = "center";
-		fillText(this.message1, this.GUI.w/2, this.GUI.h/3.3);
-		fillText(this.message2, this.GUI.w/2, (this.GUI.h/3.3)*2);
-
-		fillStyle = this.colors.black;
-		beginPath();
-			moveTo(15,this.GUI.h-10);
-			lineTo(30,this.GUI.h);
-			lineTo(30,this.GUI.h-10);
-			lineTo(15,this.GUI.h-10);
-			fill();
-			moveTo(this.GUI.w-15,this.GUI.h-10);
-			lineTo(this.GUI.w-30,this.GUI.h);
-			lineTo(this.GUI.w-30,this.GUI.h-10);
-			lineTo(this.GUI.w-15,this.GUI.h-10);
-			fill();
-		closePath();
-	
-	}
-}
-
-banner.prototype.click = function() {
-	if (this.isLink) {
-		window.location = this.link;
-	}
-}
-},{"../core/widget":3,"util":51}],10:[function(require,module,exports){
-var util = require('util');
-var widget = require('../core/widget');
 var drawing = require('../utils/drawing');
 
 var button = module.exports = function(target) {
@@ -1913,175 +1618,7 @@ button.prototype.setTouchImage = function(image) {
 	this.imageTouch.onload = this.draw.bind(this)
 	this.imageTouch.src = image;
 }
-},{"../core/widget":3,"../utils/drawing":5,"util":51}],11:[function(require,module,exports){
-var util = require('util');
-var widget = require('../core/widget');
-
-/** 
-	@class colors      
-	Color picker that outputs RBG values
-	```html
-	<canvas nx="colors"></canvas>
-	```
-	<canvas nx="colors" style="margin-left:25px"></canvas>
-*/
-				
-var colors = module.exports = function (target) {
-	
-	this.defaultSize = { width: 100, height: 100 };	
-	widget.call(this, target);
-
-	this.init();
-	
-}
-util.inherits(colors, widget);
-
-colors.prototype.init = function() {
-
-	/* new tactic */
-
-	this.gradient1 = this.context.createLinearGradient(0,0,this.GUI.w,0)
- 	this.gradient1.addColorStop(0, '#F00'); 
- 	this.gradient1.addColorStop(0.17, '#FF0'); 
- 	this.gradient1.addColorStop(0.34, '#0F0'); 
- 	this.gradient1.addColorStop(0.51, '#0FF'); 
- 	this.gradient1.addColorStop(0.68, '#00F'); 
- 	this.gradient1.addColorStop(0.85, '#F0F'); 
- 	this.gradient1.addColorStop(1, '#F00'); 
-
-	this.gradient2 = this.context.createLinearGradient(0,0,0,this.GUI.h)
- 	this.gradient2.addColorStop(0, 'rgba(0,0,0,255)'); 
- 	this.gradient2.addColorStop(0.49, 'rgba(0,0,0,0)'); 
- 	this.gradient2.addColorStop(0.51, 'rgba(255,255,255,0)'); 
- 	this.gradient2.addColorStop(0.95, 'rgba(255,255,255,255)'); 
-
-	this.draw();
-}
-
-colors.prototype.draw = function() {
-	this.erase();
-
-	with(this.context) {
-		fillStyle = this.gradient1;
-		fillRect(0,0,this.GUI.w,this.GUI.h)
-		fillStyle = this.gradient2;
-		fillRect(0,0,this.GUI.w,this.GUI.h)
-	}
-
-	this.drawLabel();
-}
-
-colors.prototype.drawColor = function() {
-	with(this.context) {
-		fillStyle = "rgb("+this.val.r+","+this.val.g+","+this.val.b+")"
-		fillRect(0,this.GUI.h * 0.95,this.GUI.w,this.GUI.h* 0.05)
-
-	}
-}
-
-colors.prototype.click = function(e) {
-	if (this.clickPos.x > 0 && this.clickPos.y > 0 && this.clickPos.x < this.GUI.w && this.clickPos.y < this.GUI.h) {
-		var imgData = this.context.getImageData(this.clickPos.x*2,this.clickPos.y*2,1,1);
-	} else {
-		return;
-	}
-	
-
-	/** @property {object}  val  RGB color value at mouse position. <br> This is also the widget's data output (See <a href="#nexusui-api-widget-widgetval">widget.val</a>). <br> Properties:
-	| &nbsp; | data
-	| --- | ---
-	| *r* | red value 0-256
-	| *g* | green value 0-256
-	| *b* | blue value 0-256 
-	```js 
-	colors1.on('*', function(data) {
-		// some code using data.r, data.g, and data.b
-	}
-	```
-	*/
-
-	this.val = {
-		r: imgData.data[0], 
-		g: imgData.data[1], 
-		b: imgData.data[2]
-	}
-	this.transmit(this.val);
-	this.drawColor();
-}
-
-
-colors.prototype.move = function(e) {
-	this.click(e);
-}
-},{"../core/widget":3,"util":51}],12:[function(require,module,exports){
-var util = require('util');
-var widget = require('../core/widget');
-
-/** 
-	@class comment      
-	Text comment
-	```html
-	<canvas nx="comment"></canvas>
-	```
-	<canvas nx="comment" style="margin-left:25px"></canvas>
-*/
-
-var comment = module.exports = function (target) {
-	
-	this.defaultSize = { width: 100, height: 20 };
-	widget.call(this, target);
-
-	/** @property {object}  val   
-		| &nbsp; | data
-		| --- | ---
-		| *text* | text of comment area (as string)
-		```js 
-		comment1.val.text = "This is my comment"
-		comment1.draw()
-		```
-	*/
-	
-	this.val = {
-		text: "comment"
-	}
-	this.sizeSet = false;
-
-	this.init();
-}
-util.inherits(comment, widget);
-
-/** @method setSize
-	Set the font size of the comment text
-	@param {integer} [size] Text size in pixels
-*/
-comment.prototype.setSize = function(size) {
-	this.size = size;
-	this.sizeSet = true;
-	this.draw();
-}
-
-comment.prototype.init = function() {
-	this.draw();
-}
-
-comment.prototype.draw = function() {
-	if (!this.sizeSet) {
-		this.size = Math.sqrt((this.GUI.w * this.GUI.h) / (this.val.text.length*2));
-	}
-
-	this.erase();
-	with (this.context) {
-		
-		fillStyle = this.colors.fill;
-		fillRect(0,0,this.GUI.w,this.GUI.h);
-		
-		fillStyle = this.colors.black;
-		textAlign = "left";
-		font = this.size+"px 'Open Sans'";
-	}
-	this.wrapText(this.val.text, 6, 3+this.size, this.GUI.w-6, this.size);
-}
-},{"../core/widget":3,"util":51}],13:[function(require,module,exports){
+},{"../core/widget":3,"../utils/drawing":5,"util":35}],10:[function(require,module,exports){
 var math = require('../utils/math')
 var util = require('util');
 var widget = require('../core/widget');
@@ -2169,7 +1706,7 @@ crossfade.prototype.move = function() {
 	this.draw();
 	this.transmit(this.val);
 }
-},{"../core/widget":3,"../utils/math":6,"util":51}],14:[function(require,module,exports){
+},{"../core/widget":3,"../utils/math":6,"util":35}],11:[function(require,module,exports){
 var math = require('../utils/math');
 var util = require('util');
 var widget = require('../core/widget');
@@ -2377,7 +1914,7 @@ dial.prototype.aniBounce = function() {
 }
 
 
-},{"../core/widget":3,"../utils/math":6,"util":51}],15:[function(require,module,exports){
+},{"../core/widget":3,"../utils/math":6,"util":35}],12:[function(require,module,exports){
 var startTime = 0;
 
 var math = require('../utils/math')
@@ -2683,944 +2220,31 @@ envelope.prototype.findNearestNode = function(x, y, nodes) {
 
 	return nearestIndex;
 }
-},{"../core/widget":3,"../utils/math":6,"util":51}],16:[function(require,module,exports){
-var math = require('../utils/math')
-var util = require('util');
-var widget = require('../core/widget');
-
-/** 
-	@class ghost (alpha) 
-	Interface gesture capture / playback (in development)    
-	
-	```html
-	<canvas nx="ghost"></canvas>
-	```
-	<canvas nx="ghost" style="margin-left:25px"></canvas>
-*/
-
-var ghost = module.exports = function(target) {
-	
-	this.defaultSize = { width: 100, height: 50 };
-	widget.call(this, target);
-	
-	//define unique attributes
-	this.recording = false;
-	this.playing = false;
-	this.maxLength = 2000;
-	this.components = new Array();
-	this.buffer = new Array();
-	//this.moment is for the record head
-	this.moment = 0;
-	//this.needle is for the playback head
-	this.needle = 0;
-	this.val = new Object();
-	this.rate = 1;
-	this.start = 0;
-	this.end = 1;
-	this.size = 0;
-	this.looping = true;
-	this.boundLog = this.log.bind(this)
-	this.direction = 1;
-	//settings
-	this.noise = 0;
-	this.loopstart = 0;
-	this.loopend = 0;
-	this.mode = "linear";   // linear,bounce,random,wander,pattern/dream
-	//init
-	this.init();
-
-	this.boundAdv = this.advance.bind(this);
-	nx.aniItems.push(this.boundAdv)
-
-}
-
-util.inherits(ghost, widget);
-
-
-ghost.prototype.init = function() {
-	this.draw();
-}
-
-ghost.prototype.watch = function() {
-}
-	
-	//sets a new component to be recorded
-ghost.prototype.connect = function(target) {
-	var compIndex = this.components.length;
-	this.components.push(target);
-	target.tapeNum = compIndex;
-	target.isRecording = true;
-	target.recorder = this;
-	this.buffer[compIndex] = new Object();
-	for (var key in target.val) {
-		this.buffer[compIndex][key] = new Array();
-	}
-	
-}
-	
-	//the actual recording function
-ghost.prototype.write = function(index, val) {
-	if (this.moment>=this.maxLength) {
-		this.stop();
-	}
-	for (var key in val) {
-		if (this.buffer[index][key]) {
-			// if an array or object, must make a copy, otherwise it is a reference to the original and will not record properly
-			if (typeof val[key] == "object") {
-				if (Array.isArray(val[key])) {
-				//	this.buffer[index][key][this.moment] = val[key].slice()
-				//	above line should work, but is still only a reference, not a copy
-					this.buffer[index][key][this.moment] = JSON.parse(JSON.stringify(val[key]))
-				} else {
-					this.buffer[index][key][this.moment] = {}
-					for (var subkey in val[key]) {
-						this.buffer[index][key][this.moment][subkey] = val[key][subkey]
-					}
-				}
-			} else {
-				this.buffer[index][key][this.moment] = val[key];
-			}
-		}
-	}
-	this.draw();
-}
-	
-
-ghost.prototype.draw = function() {
-
-	with (this.context) {
-		fillStyle = this.colors.fill;
-		fillRect(0,0,this.GUI.w,this.GUI.h)
-	}
-
-	var quad = this.GUI.w/4;
-	var quad2 = this.GUI.w-quad;
-	
-	if (!this.recording) {
-		with (this.context) {
-			fillStyle = "#e33";
-			beginPath()
-			arc(quad,this.GUI.h/2,quad*0.8,0,Math.PI*2)
-			fill()
-			closePath();
-			textAlign = "center"
-			textBaseline = "middle"
-			font = "normal "+this.GUI.h/6+"px courier"
-			fillStyle = this.colors.fill
-			fillText("rec",quad,this.GUI.h/2)
-		}
-	} else {
-		with (this.context) {
-			fillStyle = "#e33";
-			fillRect(quad*0.4,quad*0.4,quad*1.2,quad*1.2)
-		}
-	}
-	
-	if (!this.playing) {
-		with (this.context) {
-			fillStyle = this.colors.border
-			beginPath()
-			arc(quad2,this.GUI.h/2,quad*0.8,0,Math.PI*2)
-			fill()
-			closePath()
-			textAlign = "center"
-			textBaseline = "middle"
-			font = "normal "+this.GUI.h/6+"px courier"
-			fillStyle = this.colors.fill
-			fillText("play",quad2,this.GUI.h/2)
-		}
-	} else {
-		with (this.context) {
-			strokeStyle = this.colors.border
-			lineWidth = this.GUI.w/30
-			beginPath()
-			arc(quad2,this.GUI.h/2,quad*0.8,0,Math.PI*2)
-			stroke()
-			closePath()
-			var sec = ~~(this.needle/30)
-			textAlign = "center"
-			textBaseline = "middle"
-			font = "normal "+this.GUI.h/3+"px courier"
-			fillStyle = this.colors.border
-			fillText(sec,quad2,this.GUI.h/2+2)
-		}
-	}
-}
-
-ghost.prototype.record = function() {
-	if (!this.playing) {
-		this.components = new Array();
-		for (var key in nx.widgets) {
-			this.connect(nx.widgets[key]);
-		}
-	}
-	this.moment = 0;
-	nx.aniItems.push(this.boundLog)
-	this.recording = true;
-}
-
-ghost.prototype.log = function() {
-	for (var i=0;i<this.components.length;i++) {
-		var sender = this.components[i];
-		this.write(this.components[i].tapeNum,this.components[i].val);
-	}
-	this.moment++;
-}
-
-ghost.prototype.stop = function() {
-	nx.removeAni(this.boundLog);
-	this.size = this.moment;
-	this.recording = false;
-
-/*	for ()
-	for (var j=0;j<this.buffer[sender.tapeNum][key].length;j++) {
-		if (this.buffer[sender.tapeNum][key][j] != this.buffer[sender.tapeNum][key][0]) {
-			changed = true;
-			console.log(key + " changes")
-			break;
-		}
-	} */
-
-	this.draw();
-}
-
-
-ghost.prototype.scan = function(x) {
-
-	this.pneedle = this.needle - this.direction
-	if (this.pneedle <= 0) {
-		this.pneedle = this.size-1
-	} else if (this.pneedle >= this.size-1) {
-		this.pneedle = 0
-	}
-
-
-	// loop through the widgets that were recorded
-	for (var i=0;i<this.components.length;i++) {
-		//sender is the current widget we're looking at
-		var sender = this.components[i];
-		//loop through the widget's gesture buffer
-		for (var key in this.buffer[sender.tapeNum]) {
-			if (this.buffer[sender.tapeNum][key]) {
-
-				//create a new val object
-				var val = new Object();
-				//make sure we're not looking out of bounds of the buffer
-				var max = this.buffer[sender.tapeNum][key][~~this.needle+1] ? this.buffer[sender.tapeNum][key][~~this.needle+1] : this.buffer[sender.tapeNum][key][~~this.needle]
-
-			//	var changed = false;
-
-				//is this value the first
-		/*		if (this.buffer[sender.tapeNum][key][~~this.needle-this.direction] == undefined) {
-			
-					for (var j=0;j<this.buffer[sender.tapeNum][key].length;j++) {
-						if (this.buffer[sender.tapeNum][key][j] != this.buffer[sender.tapeNum][key][0]) {
-							changed = true;
-							break;
-						}
-					}
-				} else if (this.buffer[sender.tapeNum][key][~~this.needle] != this.buffer[sender.tapeNum][key][~~this.needle-this.direction]) {
-					changed = true;
-				} */
-
-
-
-				if (this.buffer[sender.tapeNum][key][~~this.needle] != this.buffer[sender.tapeNum][key][~~this.pneedle]) {
-	
-					// if it's a number, interpolate
-					if (typeof this.buffer[sender.tapeNum][key][~~this.needle] == "number") {
-						// create the value pair
-						val[key] = nx.interp(this.needle - ~~this.needle, this.buffer[sender.tapeNum][key][~~this.needle], max)
-						val[key] += Math.random() * this.noise - this.noise/2;
-						val[key] = nx.clip(val[key],0,1)
-						//set the widget with the value from the buffer
-						sender.set(val, true)
-					} else {
-						// otherwise, transfer the closest val as is
-						val[key] = this.buffer[sender.tapeNum][key][~~this.needle]
-						sender.set(val, true)
-						
-					}
-
-					
-				}
-			}
-		}
-	}
-}
-
-
-
-//this.moment is for the record head
-//this.needle is for the playback head
-
-ghost.prototype.play = function(rate,start,end) {
-	rate ? this.rate = rate : false;
-	if (start || this.start) {
-		//this.needle = this.moment-1;
-		this.start = start ? start : this.start;
-		this.needle = this.start
-	} else {
-		this.needle = this.moment-1;
-		this.start = 0;
-	} 
-	if (this.mode=="linear") {
-		this.direction = 1;
-	}
-	end ? this.end = end : this.end = 1
-	this.playing = true;
-}
-
-ghost.prototype.pause = function() {
-	this.playing = false;
-}
-
-ghost.prototype.loop = function() {
-	
-}
-
-ghost.prototype.advance = function() {
-	if (this.playing) {
-		if (this.mode == "linear" || this.mode == "bounce") {
-			this.needle += this.rate*this.direction;
-		} else if (this.mode=="random") {
-			this.needle = nx.random((this.end-this.start)*this.size)+this.start*this.size;
-		} else if (this.mode=="wander") {
-			var dir = 3
-			this.needle > this.size*0.75 ? dir-- : null;
-			this.needle < this.size*0.25 ? dir++ : null;
-			this.needle += this.rate*this.direction * (nx.random(dir)-1);
-		}
-
-		if (this.needle/this.size < this.end && this.needle/this.size >= this.start) {
-			this.scan();
-		} else if (this.looping) {
-			if (this.mode=="linear") {
-				this.needle = this.start*this.size;
-			} else {
-				this.direction = this.direction * -1
-			}
-		} else {
-			this.playing = false;
-		}
-		this.draw();
-	}
-}
-	
-
-ghost.prototype.click = function(e) {
-	if (this.clickPos.x<this.GUI.w/2) {
-		if (this.recording) {
-			this.stop()
-		} else {
-			this.pause()
-			this.record()
-		}
-	} else {
-		if (this.playing) {
-			this.pause();
-		} else {
-			this.play();
-		}
-		this.draw();
-	}
-}
-},{"../core/widget":3,"../utils/math":6,"util":51}],17:[function(require,module,exports){
-var math = require('../utils/math')
-var util = require('util');
-var widget = require('../core/widget');
-
-/** 
-	@class ghostlist (alpha) 
-	Interface gesture capture / playback (in development)    
-	
-	```html
-	<canvas nx="ghostlist"></canvas>
-	```
-	<canvas nx="ghostlist" style="margin-left:25px"></canvas>
-*/
-
-var ghostlist = module.exports = function(target) {
-	
-	this.defaultSize = { width: 100, height: 50 };
-	widget.call(this, target);
-	
-	//define unique attributes
-	this.recording = false;
-	this.playing = false;
-	this.maxLength = 2000;
-	this.components = new Array();
-	//the recording buffer
-	this.buffer = new Array();
-	//the playback info
-	this.playbuffer = []
-	this.playIndex = 0
-	this.playbufferSize = 0
-	//this.moment is for the record head
-	this.moment = 0;
-	//this.needle is for the playback head
-	this.needle = 0;
-	this.val = new Object();
-	this.rate = 1;
-	this.start = 0;
-	this.end = 1;
-	this.size = 0;
-	this.looping = true;
-	this.boundLog = this.log.bind(this)
-	this.direction = 1;
-	//settings
-	this.noise = 0;
-	this.loopstart = 0;
-	this.loopend = 0;
-	this.mode = "linear";   // linear,bounce,random,wander,pattern/dream
-	//init
-	this.init();
-
-	this.boundAdv = this.advance.bind(this);
-	nx.aniItems.push(this.boundAdv)
-
-}
-
-util.inherits(ghostlist, widget);
-
-
-ghostlist.prototype.init = function() {
-	this.draw();
-}
-
-ghostlist.prototype.watch = function() {
-}
-	
-	//sets a new component to be recorded
-ghostlist.prototype.connect = function(target) {
-	var compIndex = this.components.length;
-	this.components.push(target);
-	target.tapeNum = compIndex;
-	target.isRecording = true;
-	target.recorder = this;
-	this.buffer[compIndex] = new Object();
-	for (var key in target.val) {
-		this.buffer[compIndex][key] = new Array();
-	}
-	
-}
-	
-	//the actual recording function
-ghostlist.prototype.write = function(index, val) {
-	if (this.moment>=this.maxLength) {
-		this.stop();
-	}
-	for (var key in val) {
-		if (this.buffer[index][key]) {
-			/*if (!this.actuated) {
-				//if ignored because widget currently being set with .set
-				this.buffer[index][key][this.moment] = {}
-					for (var subkey in val[key]) {
-						this.buffer[index][key][this.moment][subkey] = val[key][subkey]
-					}
-
-			} else { */
-				// if an array or object, must make a copy, otherwise it is a reference to the original and will not record properly
-				if (typeof val[key] == "object") {
-					if (Array.isArray(val[key])) {
-					//	this.buffer[index][key][this.moment] = val[key].slice()
-					//	above line should work, but is still only a reference, not a copy
-						if (this.components[index].actuated) {
-							this.buffer[index][key][this.moment] = JSON.parse(JSON.stringify(val[key]))
-						} else {
-							this.buffer[index][key][this.moment] = false;
-						}
-					} else {
-						this.buffer[index][key][this.moment] = {}
-						for (var subkey in val[key]) {
-							if (this.components[index].actuated) {
-								this.buffer[index][key][this.moment][subkey] = val[key][subkey]
-							} else {
-								this.buffer[index][key][this.moment][subkey] = false;
-							}
-						}
-					}
-				} else {
-					
-					if (this.components[index].actuated) {
-						this.buffer[index][key][this.moment] = val[key];
-					} else {
-						this.buffer[index][key][this.moment] = false;
-					}
-				}
-		//	}
-		}
-	}
-	this.draw();
-}
-	
-
-ghostlist.prototype.draw = function() {
-
-	with (this.context) {
-		fillStyle = this.colors.fill;
-		fillRect(0,0,this.GUI.w,this.GUI.h)
-	}
-
-	var quad = this.GUI.w/4;
-	var quad2 = this.GUI.w-quad;
-	
-	if (!this.recording) {
-		with (this.context) {
-			fillStyle = "#e33";
-			beginPath()
-			arc(quad,this.GUI.h/2,quad*0.8,0,Math.PI*2)
-			fill()
-			closePath();
-			textAlign = "center"
-			textBaseline = "middle"
-			font = "normal "+this.GUI.h/6+"px courier"
-			fillStyle = this.colors.fill
-			fillText("rec",quad,this.GUI.h/2)
-		}
-	} else {
-		with (this.context) {
-			fillStyle = "#e33";
-			fillRect(quad*0.4,quad*0.4,quad*1.2,quad*1.2)
-		}
-	}
-	
-	if (!this.playing) {
-		with (this.context) {
-			fillStyle = this.colors.border
-			beginPath()
-			arc(quad2,this.GUI.h/2,quad*0.8,0,Math.PI*2)
-			fill()
-			closePath()
-			textAlign = "center"
-			textBaseline = "middle"
-			font = "normal "+this.GUI.h/6+"px courier"
-			fillStyle = this.colors.fill
-			fillText("play",quad2,this.GUI.h/2)
-		}
-	} else {
-		with (this.context) {
-			strokeStyle = this.colors.border
-			lineWidth = this.GUI.w/30
-			beginPath()
-			arc(quad2,this.GUI.h/2,quad*0.8,0,Math.PI*2)
-			stroke()
-			closePath()
-			var sec = ~~(this.needle/30)
-			textAlign = "center"
-			textBaseline = "middle"
-			font = "normal "+this.GUI.h/3+"px courier"
-			fillStyle = this.colors.border
-			fillText(sec,quad2,this.GUI.h/2+2)
-		}
-	}
-}
-
-ghostlist.prototype.record = function() {
-//	if (!this.playing) {
-		this.components = new Array();
-		for (var key in nx.widgets) {
-			this.connect(nx.widgets[key]);
-		}
-//	}
-	this.moment = 0;
-	nx.aniItems.push(this.boundLog)
-	this.recording = true;
-}
-
-ghostlist.prototype.log = function() {
-	for (var i=0;i<this.components.length;i++) {
-		var sender = this.components[i];
-		var val = {}
-		if (!sender.clicked) {
-			for (var key in sender.val) {
-				val[key] = false
-			}
-		} else {
-			val = sender.val
-			if (!jest.nexttitle) {
-				jest.nexttitle = sender.canvasID
-			}
-		}
-		this.write(this.components[i].tapeNum,val);
-	}
-	this.moment++;
-}
-
-ghostlist.prototype.stop = function() {
-	nx.removeAni(this.boundLog);
-	this.size = this.moment;
-	this.recording = false;
-	this.draw();
-}
-
-
-ghostlist.prototype.scan = function(x) {
-
-	// loop through the widgets that were recorded
-	for (var i=0;i<this.components.length;i++) {
-		//sender is the current widget we're looking at
-		var sender = this.components[i];
-		//loop through the widget's recorded val keys
-		for (var key in this.playbuffer[sender.tapeNum]) {
-
-			//console.log(this.playbuffer[sender.tapeNum][key])
-			//
-			//playbuffer is the whole buffer
-			//sender.tapeNum is the nx.widget index & this.component index
-			//[key] is the val property that was recorded, i.e. x and y for 
-			//so this returns an array for each val property. that array contains n moments of recorded data
-
-			if (this.playbuffer[sender.tapeNum][key]) {
-
-				//create a new val object
-				var val = new Object();
-				//make sure we're not looking out of bounds of the buffer
-				var max = this.playbuffer[sender.tapeNum][key][~~this.needle+1] ? this.playbuffer[sender.tapeNum][key][~~this.needle+1] : this.playbuffer[sender.tapeNum][key][~~this.needle]
-				//console.log("1")
-				if (this.playbuffer[sender.tapeNum][key][~~this.needle-this.direction] != undefined && this.playbuffer[sender.tapeNum][key][~~this.needle] !== this.playbuffer[sender.tapeNum][key][~~this.needle-this.direction]) {
-					// if it's a number, interpolate
-					if (typeof this.playbuffer[sender.tapeNum][key][~~this.needle] == "number") {
-						// create the value pair
-						val[key] = nx.interp(this.needle - ~~this.needle, this.playbuffer[sender.tapeNum][key][~~this.needle], max)
-						val[key] += Math.random() * this.noise - this.noise/2;
-						val[key] = nx.clip(val[key],0,1)
-						//set the widget with the value from the buffer
-						//console.log(val)
-						sender.set(val, true);
-					} else {
-						// otherwise, transfer the closest val as is
-						val[key] = this.playbuffer[sender.tapeNum][key][~~this.needle]
-						
-						if (val[key] || val[key]===0) {
-							//console.log(val)
-							sender.set(val, true)
-						}
-						
-					}
-				}
-			}
-		}
-	}
-}
-
-
-
-//this.moment is for the record head
-//this.needle is for the playback head
-
-ghostlist.prototype.play = function(rate,start,end) {
-	rate ? this.rate = rate : false;
-	if (start) {
-		this.needle = this.moment-1;
-		this.start = start;
-	} else {
-		this.needle = this.moment-1;
-		this.start = 0;
-	} 
-	if (this.mode=="linear") {
-		this.direction = 1;
-	}
-	end ? this.end = end : this.end = 1
-	this.playing = true;
-}
-
-ghostlist.prototype.pause = function() {
-	this.playing = false;
-}
-
-ghostlist.prototype.loop = function() {
-	
-}
-
-ghostlist.prototype.advance = function() {
-	if (this.playing) {
-		if (this.mode == "linear" || this.mode == "bounce") {
-			this.needle += this.rate*this.direction;
-		} else if (this.mode=="random") {
-			this.needle = nx.random((this.end-this.start)*this.playbufferSize)+this.start*this.playbufferSize;
-		} else if (this.mode=="wander") {
-			var dir = 3
-			this.needle > this.playbufferSize*0.75 ? dir-- : null;
-			this.needle < this.playbufferSize*0.25 ? dir++ : null;
-			this.needle += this.rate*this.direction * (nx.random(dir)-1);
-		}
-
-		if (this.needle/this.playbufferSize < this.end && this.needle/this.playbufferSize > this.start) {
-			this.scan();
-		} else if (this.looping) {
-			if (this.mode=="linear") {
-			//	this.needle = this.start*this.playbufferSize + 1;
-				this.needle = 0;
-				this.next = this.jest.next()
-				this.playbuffer = this.next.buffer
-				this.playbufferSize = this.next.len
-			} else {
-				this.direction = this.direction * -1
-			}
-		} else {
-			this.playing = false;
-		}
-		this.draw();
-		this.jest.drawvis(this.needle/this.playbufferSize)
-	}
-}
-	
-
-ghostlist.prototype.click = function(e) {
-	if (this.clickPos.x<this.GUI.w/2) {
-		if (this.recording) {
-			this.stop()
-		} else {
-			this.record()
-		}
-	} else {
-		if (this.playing) {
-			this.pause();
-		} else {
-			this.play();
-		}
-		this.draw();
-	}
-}
-},{"../core/widget":3,"../utils/math":6,"util":51}],18:[function(require,module,exports){
+},{"../core/widget":3,"../utils/math":6,"util":35}],13:[function(require,module,exports){
 module.exports = {
-  banner: require('./banner'),
   button: require('./button'),
-  colors: require('./colors'),
-  comment: require('./comment'),
   crossfade: require('./crossfade'),
   dial: require('./dial'),
   envelope: require('./envelope'),
-  ghost: require('./ghost'),
-  ghostlist: require('./ghostlist'),
-  joints: require('./joints'),
   keyboard: require('./keyboard'),
   matrix: require('./matrix'),
   message: require('./message'),
   meter: require('./meter'),
   metro: require('./metro'),
-  metroball: require('./metroball'),
-  motion: require('./motion'),
-  mouse: require('./mouse'),
   multislider: require('./multislider'),
   multitouch: require('./multitouch'),
   number: require('./number'),
-  panel: require('./panel'),
   position: require('./position'),
   range: require('./range'),
   select: require('./select'),
   slider: require('./slider'),
-  string: require('./string'),
   tabs: require('./tabs'),
-  text: require('./text'),
   tilt: require('./tilt'),
   toggle: require('./toggle'),
-  trace: require('./trace'),
   typewriter: require('./typewriter'),
-  vinyl: require('./vinyl'),
-  waveform: require('./waveform'),
-  wavegrain: require('./wavegrain'),
-  windows: require('./windows')
+  waveform: require('./waveform')
 }
-},{"./banner":9,"./button":10,"./colors":11,"./comment":12,"./crossfade":13,"./dial":14,"./envelope":15,"./ghost":16,"./ghostlist":17,"./joints":19,"./keyboard":20,"./matrix":21,"./message":22,"./meter":23,"./metro":24,"./metroball":25,"./motion":26,"./mouse":27,"./multislider":28,"./multitouch":29,"./number":30,"./panel":31,"./position":32,"./range":33,"./select":34,"./slider":35,"./string":36,"./tabs":37,"./text":38,"./tilt":39,"./toggle":40,"./trace":41,"./typewriter":42,"./vinyl":43,"./waveform":44,"./wavegrain":45,"./windows":46}],19:[function(require,module,exports){
-var math = require('../utils/math')
-var util = require('util');
-var widget = require('../core/widget');
-
-/** 
-	@class joints      
-	2D slider with connections to several points; a proximity-based multislider.
-	```html
-	<canvas nx="joints"></canvas>
-	```
-	<canvas nx="joints" style="margin-left:25px"></canvas>
-*/
-
-var joints = module.exports = function (target) {
-	this.defaultSize = { width: 150, height: 150 };
-	widget.call(this, target);
-	
-	/* @property {integer} nodeSize The size of the proximity points in pixels */
-	this.nodeSize = this.GUI.w/14; 
-	this.values = [0,0];
-
-	/** @property {object}  val  
-		| &nbsp; | data
-		| --- | ---
-		| *x* | x position of touch/mouse
-		| *y* | y position of touch/mouse
-		| *node0* | nearness to first node if within range (float 0-1)
-		| *node1* | nearness to second node if within range (float 0-1)
-		| *node2* | nearness to third node if within range (float 0-1)
-		| etc... | &nbsp;
-		
-	*/
-	this.val = {
-		x: 0.35,
-		y: 0.35,
-		node1: 0
-	}
-	/** @property {array} joints An array of objects with x and y properties detailing coordinates of each proximity node. Coordinates are 0-1 floats which are decimal fractions of the width and height.
-	```js
-		// The widget will now have 2 proximity points instead of 8
-		joints1.joints = [
-		&nbsp; { x: 0.5 , y: 0.2 },
-		&nbsp; { x: 0.5 , y: 0.7 }
-		]
-	```
-	 */
-	this.joints = [
-		{ x: .1, y: .2 },
-	    { x: .2, y: .1 },
-	    { x: .3, y: .7 },
-	    { x: .4, y: .4 },
-	    { x: .5, y: .9 },
-	    { x: .6, y: .15 },
-	    { x: .7, y: .3 },
-	    { x: .8, y: .8 },
-	]
-	this.threshold = this.GUI.w / 3;
-}
-util.inherits(joints, widget);
-
-joints.prototype.init = function() {
-  this.nodeSize = this.GUI.w/14;
-  this.threshold = this.GUI.w/3;
-  this.draw();
-}
-
-joints.prototype.draw = function() {
-	this.erase();
-
-	this.drawingX = this.val.x * this.GUI.w;
-	this.drawingY = this.val.y * this.GUI.h;
-
-	with (this.context) {
-		fillStyle = this.colors.fill;
-		fillRect(0,0,this.GUI.w,this.GUI.h);
-		if (this.val.x != null) {
-			this.drawNode();
-		}
-		else {
-			fillStyle = this.colors.border;
-			font = "14px courier";
-			fillText(this.default_text, 10, 20);
-		}	
-		fillStyle = this.colors.accent;
-		strokeStyle = this.colors.border;
-		for (var i in this.joints) {
-			beginPath();
-				arc(this.joints[i].x*this.GUI.w, this.joints[i].y*this.GUI.h, this.nodeSize/2, 0, Math.PI*2, true);					
-				fill();
-			closePath();
-			var cnctX = Math.abs(this.joints[i].x*this.GUI.w-this.drawingX);
-			var cnctY = Math.abs(this.joints[i].y*this.GUI.h-this.drawingY);
-			var strength = cnctX + cnctY;
-			if (strength < this.threshold) {
-				beginPath();
-					moveTo(this.joints[i].x*this.GUI.w, this.joints[i].y*this.GUI.h);
-					lineTo(this.drawingX,this.drawingY);
-					strokeStyle = this.colors.accent;
-					lineWidth = math.scale( strength, 0, this.threshold, this.nodeSize/2, 5 );
-					stroke();
-				closePath();
-				var scaledstrength = math.scale( strength, 0, this.threshold, 1, 0 );
-				this.val["node"+i] = scaledstrength;
-			}
-		}
-	}
-	
-	this.drawLabel();
-}
-
-joints.prototype.drawNode = function() {
-	//stay within right/left bounds
-	if (this.drawingX<(this.nodeSize)) {
-		this.drawingX = this.nodeSize;
-	} else if (this.drawingX>(this.GUI.w-this.nodeSize)) {
-		this.drawingX = this.GUI.w - this.nodeSize;
-	}
-	//stay within top/bottom bounds
-	if (this.drawingY < this.nodeSize) {
-		this.drawingY = this.nodeSize;
-	} else if (this.drawingY>(this.GUI.h-this.nodeSize)) {
-		this.drawingY = this.GUI.h - this.nodeSize;
-	}
-
-	with (this.context) {
-		globalAlpha=1;
-		beginPath();
-			fillStyle = this.colors.accent;
-			strokeStyle = this.colors.border;
-			lineWidth = this.lineWidth;
-			arc(this.drawingX, this.drawingY, this.nodeSize, 0, Math.PI*2, true);					
-			fill();
-		closePath();
-	}
-}
-
-joints.prototype.click = function() {
-	this.val = new Object();
-	this.val.x = this.clickPos.x/this.GUI.w;
-	this.val.y = this.clickPos.y/this.GUI.h;
-	this.draw();
-	this.transmit(this.val);
-	this.connections = new Array();
-    
-}
-
-joints.prototype.move = function() {
-	this.val = new Object();
-	if (this.clicked) {
-		this.val.x = this.clickPos.x/this.GUI.w;
-		this.val.y = this.clickPos.y/this.GUI.h;
-		this.draw();
-		this.transmit(this.val);
-		this.connections = new Array();
-	}
-}
-
-
-joints.prototype.release = function() {
-		this.anix = this.deltaMove.x/this.GUI.w;
-		this.aniy = (this.deltaMove.y)/this.GUI.h;
-	
-}
-
-/** @method animate
-	Add simple physics to the widget
-	@param {string} [type] Currently accepts "bounce" or "none".
-*/
-
-joints.prototype.animate = function(aniType) {
-	
-	switch (aniType) {
-		case "bounce":
-			nx.aniItems.push(this.aniBounce.bind(this));
-			break;
-		case "none":
-			nx.aniItems.splice(nx.aniItems.indexOf(this.aniBounce));
-			break;
-	}
-	
-}
-
-joints.prototype.anix = 0;
-joints.prototype.aniy = 0;
-
-joints.prototype.aniBounce = function() {
-	if (!this.clicked && this.val.x) {
-		this.val.x += (this.anix);
-		this.val.y += (this.aniy);
-		this.anix = math.bounce(this.val.x, 0.1, 0.9, this.anix);
-		this.aniy = math.bounce(this.val.y, 0.1, 0.9, this.aniy);
-		this.draw();
-		this.transmit(this.val);
-	}
-}
-
-},{"../core/widget":3,"../utils/math":6,"util":51}],20:[function(require,module,exports){
+},{"./button":9,"./crossfade":10,"./dial":11,"./envelope":12,"./keyboard":14,"./matrix":15,"./message":16,"./meter":17,"./metro":18,"./multislider":19,"./multitouch":20,"./number":21,"./position":22,"./range":23,"./select":24,"./slider":25,"./tabs":26,"./tilt":27,"./toggle":28,"./typewriter":29,"./waveform":30}],14:[function(require,module,exports){
 var util = require('util');
 var widget = require('../core/widget');
 var drawing = require('../utils/drawing');
@@ -3955,7 +2579,7 @@ keyboard.prototype.release = function(e) {
 
 
 
-},{"../core/widget":3,"../utils/drawing":5,"../utils/math":6,"util":51}],21:[function(require,module,exports){
+},{"../core/widget":3,"../utils/drawing":5,"../utils/math":6,"util":35}],15:[function(require,module,exports){
 var math = require('../utils/math');
 var drawing = require('../utils/drawing');
 var util = require('util');
@@ -4405,7 +3029,7 @@ matrix.prototype.life = function() {
   return false;
 }
 
-},{"../core/widget":3,"../utils/drawing":5,"../utils/math":6,"util":51}],22:[function(require,module,exports){
+},{"../core/widget":3,"../utils/drawing":5,"../utils/math":6,"util":35}],16:[function(require,module,exports){
 var util = require('util');
 var widget = require('../core/widget');
 
@@ -4477,7 +3101,7 @@ message.prototype.click = function(e) {
 message.prototype.release = function(e) {
 	this.draw();
 }
-},{"../core/widget":3,"util":51}],23:[function(require,module,exports){
+},{"../core/widget":3,"util":35}],17:[function(require,module,exports){
 var util = require('util');
 var drawing = require('../utils/drawing');
 var widget = require('../core/widget');
@@ -4600,7 +3224,7 @@ meter.prototype.draw = function(){
 }
     
     
-},{"../core/widget":3,"../utils/drawing":5,"util":51}],24:[function(require,module,exports){
+},{"../core/widget":3,"../utils/drawing":5,"util":35}],18:[function(require,module,exports){
 var math = require('../utils/math')
 var util = require('util');
 var widget = require('../core/widget');
@@ -4714,536 +3338,7 @@ metro.prototype.advance = function() {
 metro.prototype.customDestroy = function() {
 	nx.removeAni(this.advance.bind(this))
 }
-},{"../core/widget":3,"../utils/math":6,"util":51}],25:[function(require,module,exports){
-var math = require('../utils/math');
-var drawing = require('../utils/drawing');
-var util = require('util');
-var widget = require('../core/widget');
-
-/** 
-	@class metroball
-	Bouncy-balls for rhythms
-	```html
-	<canvas nx="metroball"></canvas>
-	```
-	<!-- <canvas nx="metroball" style="margin-left:25px"></canvas> -->
-*/
-
-
-var metroball = module.exports = function (target) {
-	this.defaultSize = { width: 300, height: 200 };
-	widget.call(this, target);
-	
-	
-	//define unique attributes
-	this.CurrentBalls = new Array();
-	this.ballpos = new Object();
-	this.clickField = null;
-	this.globalMetro;
-	this.tempo = 1;
-	this.tempoMarker = 150;
-	this.quantize = false;
-	this.tiltLR;
-	this.tiltFB;
-	this.z;
-
-	/** @property {object}  val   
-		| &nbsp; | data
-		| --- | ---
-		| *x* | x position of the bouncing ball
-		| *side* | 0 or 1 int (which side is hit)
-		| *ball* | Which ball is doing the bouncing
-		| *all* | All three values together in a string
-	*/
-	this.val = {
-		x: false,
-		side: false,
-		ball: false,
-		all: false
-	}
-
-	nx.aniItems.push(this.metro.bind(this));
-
-	this.init();
-}
-util.inherits(metroball, widget);
-
-metroball.prototype.init = function() {
-	//this.metro();
-	this.draw()
-}
-
-metroball.prototype.metro = function() {
-	with (this.context) {
-		clearRect(0,0, this.GUI.w, this.GUI.h);
-	}
-	this.drawSpaces();
-	this.drawBalls();
-	this.drawLabel();
-}
-
-metroball.prototype.drawSpaces = function() {
-	
-	with (this.context) {
-
-		fillStyle = this.colors.fill;
-		fillRect(0,0,this.GUI.w,this.GUI.h)
-		
-		fillStyle=this.colors.border;
-		fillRect(0,0,this.GUI.w,this.GUI.h/4)
-
-		font="normal "+this.GUI.h/8+"px "+nx.font;
-		textAlign = "center";
-		textBaseline = "middle"
-		fillText("add",this.GUI.w/2,this.GUI.h/1.66)
-
-
-		fillStyle = this.colors.fill;
-		fillText("delete",this.GUI.w/2,this.GUI.h/8)
-		
-	}
-}
-
-metroball.prototype.drawBalls = function() {
-	with (this.context) {
-		for (var i=0;i<this.CurrentBalls.length;i++) {
-			this.CurrentBalls[i].move();
-			this.CurrentBalls[i].draw();
-		}
-	}
-}
-
-metroball.prototype.click = function(e) {
-	
-	this.ballpos = this.clickPos;
-
-	if (this.clickPos.y < this.GUI.h/4) {
-		this.deleteMB(this.ballpos);
-	} else {
-		this.addNewMB(this.ballpos);
-	}
-	
-
-}
-
-metroball.prototype.move = function(e) {
-	this.ballpos = this.clickPos;
-	
-	if (this.clickPos.y < this.GUI.h/4) {
-		this.deleteMB(this.ballpos);
-	} else {
-		this.addNewMB(this.ballpos);
-	}
-}
-
-metroball.prototype.release = function(e) {
-	this.clickField = null;
-}
-
-
-metroball.prototype.deleteMB = function(ballpos) {
-	//delete in reverse order
-	for (var i=this.CurrentBalls.length-1;i>=0;i--) {
-		if (Math.abs(this.CurrentBalls[i].xpos-ballpos.x)<10) {
-			this.CurrentBalls[i].kill();
-		}
-	}
-	
-	//reset CurrentBalls
-	for (var i=0;i<this.CurrentBalls.length;i++) {
-		this.CurrentBalls[i].thisIndex=i;
-	}
-}
-
-	
-metroball.prototype.addNewMB = function(ballpos) {
-	var nextIndex = this.CurrentBalls.length;
-	this.CurrentBalls[nextIndex] = new this.Ball(nextIndex, ballpos.x, ballpos.y, this);
-}
-
-
-metroball.prototype.toggleQuantization = function() {
-	if (!this.quantize) {
-		this.quantize = true;
-	} else {
-		this.quantize = false;
-	}
-}
-
-/* Tilt */
-
-metroball.prototype.tilt = function(direction) {
-	
-	var scaledX = math.prune(this.tiltLR/90,3);
-	var scaledY = math.prune(this.tiltFB/90,3);
-	var scaledZ = math.prune(this.z,3);
-	tilt = scaledX * 10;
-	this.tempo = Math.pow(scaledY+1,3);
-}
-
-
-metroball.prototype.Ball = function(thisIndex, thisX, thisY, parent) {
-
-	
-	this.thisIndex = thisIndex;
-	this.color = parent.colors.accent;
-	this.space = {
-		ypos1: 0,
-		ypos2: parent.height,
-		xpos1: 0,
-		xpos2: parent.width,
-		hgt: parent.height,
-		wid: parent.width
-	}
-	this.xpos = thisX;
-	this.ypos = thisY;
-	this.size = 10;
-	this.direction = 1;
-	this.speed = (parent.height-this.ypos)/20;
-	this.speedQ = 5;
-	
-	if (this.quantize) {
-		this.ypos = parent.height-13;
-	}
-	
-	this.move = function() {
-		if (!this.quantize) {
-			this.ypos = this.ypos + (this.speed * this.direction * parent.tempo);
-		} else {
-			this.ypos = this.ypos + (this.speedQ * this.direction * parent.tempo);	
-		}
-		
-		if (this.ypos>(parent.height-this.size-2) || this.ypos<(this.size+2) ) {
-			this.bounce();
-		}
-		
-		if (this.ypos<this.space.ypos+this.size) {
-			this.ypos=this.space.ypos+this.size+5;
-		} else if (this.ypos>this.space.ypos+this.space.hgt-this.size) {
-			this.ypos=this.space.ypos+this.space.hgt-this.size-5;
-		}
-		
-		
-		if (this.xpos<this.space.xpos) {
-			this.xpos = this.space.xpos2;	
-		} else if (this.xpos>this.space.xpos2) {
-			this.xpos = this.space.xpos;	
-		}
-		
-	}
-	
-	this.bounce = function() {
-		var dirMsg = this.direction/2+1;
-		this.bounceside = (this.direction+1)/2;
-		this.direction = this.direction * (-1);
-		var xMsg = math.prune(this.xpos/this.space.wid, 3);
-		this.val = {
-			x: xMsg,
-			side: this.bounceside,
-			ball: this.thisIndex,
-			all: xMsg + " " + this.bounceside + " " + this.thisIndex
-		}
-		parent.transmit(this.val);
-	}
-	
-	this.kill = function() {
-		parent.CurrentBalls.splice(this.thisIndex,1);
-	}
-	
-	this.draw = function() {
-		
-		with (parent.context) {
-			beginPath();
-			fillStyle = this.color;
-			if (this.direction==1) {
-				this.radius = this.size * (Math.abs((this.ypos-this.space.ypos-this.space.hgt/2)/(this.space.hgt-this.space.ypos)*2));
-				this.radius = this.radius/2 + this.size/2;
-				
-				this.radius = this.size;
-				
-				this.radius = this.speed;
-				
-				this.radius = Math.abs(15-this.speed);
-				
-			} else {
-				this.radius = this.size * Math.abs(2-(Math.abs((this.ypos-this.space.ypos-this.space.hgt/2)/(this.space.hgt-this.space.ypos)*2)));
-				this.radius = this.radius/2 + this.size/2;
-				
-				this.radius = this.size;
-				
-				this.radius = Math.abs(15-this.speed);
-			}
-			arc(this.xpos, this.ypos, this.radius, 0, Math.PI*2, true);
-			fill();
-		}	
-	}	
-}
-},{"../core/widget":3,"../utils/drawing":5,"../utils/math":6,"util":51}],26:[function(require,module,exports){
-var math = require('../utils/math')
-var util = require('util');
-var widget = require('../core/widget');
-
-/** 
-	@class motion      
-	Mobile motion sensor. Does not work on all devices! <br> **Notes:** Clicking on this widget toggles it inactive or active. <br>
-	We recommend not calling .init() on this object after the original initialization, because it will add additional redundant motion listeners to your document.
-	```html
-	<canvas nx="motion"></canvas>
-	```
-	<canvas nx="motion" style="margin-left:25px"></canvas>
-*/
-
-var motion = module.exports = function (target) {
-	this.defaultSize = { width: 75, height: 75 };
-	widget.call(this, target);
-	
-	this.motionLR;
-	this.motionFB;
-	this.z;
-	/** @property {boolean} active Whether or not the motion widget is on (animating and transmitting data). */
-	this.active = true;
-
-	this.px = 0;
-	this.py = 0;
-	this.pz = 0;
-
-	/** @property {object}  val  Object containing the core interactive aspects of the widget, which are also its data output. Has the following properties: 
-		| &nbsp; | data
-		| --- | ---
-		| *x* | X-axis motion if supported (-1 to 1)
-		| *y* | Y-axis motion if supported (-1 to 1)
-		| *z* | Z-axis motion if supported (-1 to 1 or 0 to 360 depending on device)
-	*/
-	this.val = {
-		x: 0,
-		y: 0,
-		z: 0
-	}
-
-	/** @property {string}  text   Text shown on motion object
-	*/
-	
-	this.text = "Motion";
-	this.init();
-
-	this.boundMotion = this.motionlistener.bind(this)
-
-	if (window.DeviceMotionEvent) {
-		window.addEventListener('devicemotion', this.boundMotion, false);
-	} else {
-		with (this.context) {
-			fillText("incompatible",0,0)
-			this.active = false;
-		}
-	}
-	
-}
-util.inherits(motion, widget);
-
-motion.prototype.deviceMotionHandler = function() {
-	
-	this.val = {
-		x: math.prune(this.motionLR/10,4),
-		y: math.prune(this.motionFB/10,4),
-		z: math.prune(this.z/10,4)
-	}
-
-	this.transmit(this.val);
-	
-}
-
-motion.prototype.motionlistener = function(e) {
-	var data = e.acceleration
-	
-	if (this.active) {
-
-
-		this.motionLR = nx.lp(this.canvasID+"motionx",data.x,20)
-		this.motionFB = nx.lp(this.canvasID+"motiony",data.y,20)
-		this.z = nx.lp(this.canvasID+"motionz",data.z,20)
-    	this.deviceMotionHandler()
-
-   		this.draw();
-
-		if (data.x===null || data.x===undefined) {
-			this.erase()
-			with (this.context) {
-				fillStyle = this.colors.fill
-				fillRect(0,0,this.GUI.w,this.GUI.h)
-				fillStyle = this.colors.black
-				font="12px courier";
-				textAlign = "center"
-				fillText("no data",this.GUI.w/2,this.GUI.h/2)	
-			}
-			this.active = false;
-		}
- 	}
-}
-
-motion.prototype.init = function() {
-	this.draw()
-}
-
-motion.prototype.draw = function() {
-	
-	this.erase()
-
-	with (this.context) {
-	    fillStyle = this.colors.fill;
-	    fillRect(0,0,this.GUI.w,this.GUI.h);
-	    fillStyle = this.colors.accent;
-	    var eighth = Math.PI/4
-	    if (this.motionFB<0) {
-			beginPath()
-				moveTo(this.GUI.w/2,this.GUI.h/2)
-				arc(this.GUI.w/2,this.GUI.h/2,this.GUI.w/2,eighth*5,eighth*7,false)
-				globalAlpha = Math.pow(this.motionFB, 2)
-				fill()
-			closePath()
-	    } else {
-			beginPath()
-				moveTo(this.GUI.w/2,this.GUI.h/2)
-				arc(this.GUI.w/2,this.GUI.h/2,this.GUI.w/2,eighth*1,eighth*3,false)
-				globalAlpha = Math.pow(this.motionFB, 2)
-				fill()
-			closePath()
-	    }
-	    if (this.motionLR<0) {
-			beginPath()
-				moveTo(this.GUI.w/2,this.GUI.h/2)
-				arc(this.GUI.w/2,this.GUI.h/2,this.GUI.w/2,eighth*7,eighth*1,false)
-				globalAlpha = Math.pow(this.motionLR, 2)
-				fill()
-			closePath()
-	    } else {
-			beginPath()
-				moveTo(this.GUI.w/2,this.GUI.h/2)
-				arc(this.GUI.w/2,this.GUI.h/2,this.GUI.w/2,eighth*3,eighth*5,false)
-				globalAlpha = Math.pow(this.motionLR, 2)
-				fill()
-			closePath()
-	    }
-		beginPath()
-			moveTo(this.GUI.w/2,this.GUI.h/2)
-			arc(this.GUI.w/2,this.GUI.h/2,this.GUI.w/6,0,Math.PI*2,false)
-			globalAlpha = Math.pow(this.z, 2)
-			fill()
-		closePath()
-		globalAlpha = 1
-	}
-	this.drawLabel();
-}
-
-motion.prototype.click = function() {
-	this.active = !this.active;
-	this.draw()
-}
-
-motion.prototype.customDestroy = function() {
-	this.active = false;
-	window.removeEventListener("devicemotion",this.motionlistener,false);
-}
-},{"../core/widget":3,"../utils/math":6,"util":51}],27:[function(require,module,exports){
-var util = require('util');
-var widget = require('../core/widget');
-var math = require('../utils/math');
-
-/** 
-	@class mouse      
-	Mouse tracker, relative to web browser window.
-	```html
-	<canvas nx="mouse"></canvas>
-	```
-	<canvas nx="mouse" style="margin-left:25px"></canvas>
-*/
-
-var mouse = module.exports = function (target) {
-	
-	this.defaultSize = { width: 98, height: 100 };
-	widget.call(this, target);
-
-	/** @property {object}  val   
-		| &nbsp; | data
-		| --- | ---
-		| *x* | x value of mouse relative to browser
-		| *y* | y value of mouse relative to browser
-		| *deltax* | x change in mouse from last position
-		| *deltay* | y change in mouse from last position
-	*/
-	this.val = {
-		x: 0,
-		y: 0,
-		deltax: 0, 
-		deltay: 0
-	}
-	this.inside = new Object();
-	this.boundmove = this.preMove.bind(this)
-	this.mousing = window.addEventListener("mousemove", this.boundmove, false);
-	
-	this.init();
-}
-util.inherits(mouse, widget);
-
-mouse.prototype.init = function() {
-	
-	this.inside.height = this.GUI.h;
-	this.inside.width = this.GUI.w;
-	this.inside.left = 0;
-	this.inside.top = 0;
-	this.inside.quarterwid = (this.inside.width)/4;
-	 
-	this.draw();
-}
-
-mouse.prototype.draw = function() {
-	this.erase();
-
-	with (this.context) {
-		fillStyle = this.colors.fill;
-		fillRect(0,0,this.GUI.w,this.GUI.h); 
-
-		var scaledx = -(this.val.x) * this.GUI.h;
-		var scaledy = -(this.val.y) * this.GUI.h;
-		var scaleddx = -(this.val.deltax) * this.GUI.h - this.GUI.h/2;
-		var scaleddy = -(this.val.deltay) * this.GUI.h - this.GUI.h/2;
-
-		fillStyle = this.colors.accent;
-		fillRect(this.inside.left, this.inside.height, this.inside.quarterwid, scaledx);
-		fillRect(this.inside.quarterwid, this.inside.height, this.inside.quarterwid, scaledy);
-		fillRect(this.inside.quarterwid*2, this.inside.height, this.inside.quarterwid, scaleddx);
-		fillRect(this.inside.quarterwid*3, this.inside.height, this.inside.quarterwid, scaleddy);
-
-		globalAlpha = 1;
-		fillStyle = this.colors.fill;
-		textAlign = "center";
-		font = this.GUI.w/7+"px "+this.font;
-/*  fillText("x", this.inside.quarterwid*0 + this.inside.quarterwid/2, this.GUI.h-7);
-		fillText("y", this.inside.quarterwid*1 + this.inside.quarterwid/2, this.GUI.h-7);
-		fillText("dx", this.inside.quarterwid*2 + this.inside.quarterwid/2, this.GUI.h-7);
-		fillText("dy", this.inside.quarterwid*3 + this.inside.quarterwid/2, this.GUI.h-7);
-*/
-		globalAlpha = 1;
-	}
-	
-	this.drawLabel();
-}
-
-mouse.prototype.move = function(e) {
-	this.val = {
-		deltax: e.clientX/window.innerWidth - this.val.x,
-		deltay: math.invert(e.clientY/window.innerHeight) - this.val.y,
-		x: e.clientX/window.innerWidth,
-		y: math.invert(e.clientY/window.innerHeight)
-	}
-	this.draw();
-	this.transmit(this.val);
-
-}
-
-mouse.prototype.customDestroy = function() {
-	window.removeEventListener("mousemove",  this.boundmove, false);
-}
-},{"../core/widget":3,"../utils/math":6,"util":51}],28:[function(require,module,exports){
+},{"../core/widget":3,"../utils/math":6,"util":35}],19:[function(require,module,exports){
 var math = require('../utils/math')
 var util = require('util');
 var widget = require('../core/widget');
@@ -5398,7 +3493,7 @@ multislider.prototype.setSliderValue = function(slider,value) {
 	this.transmit(msg);
 }
 
-},{"../core/widget":3,"../utils/math":6,"util":51}],29:[function(require,module,exports){
+},{"../core/widget":3,"../utils/math":6,"util":35}],20:[function(require,module,exports){
 var math = require('../utils/math');
 var drawing = require('../utils/drawing');
 var util = require('util');
@@ -5603,7 +3698,7 @@ multitouch.prototype.sendit = function() {
 	}
 	this.transmit(this.val);
 }
-},{"../core/widget":3,"../utils/drawing":5,"../utils/math":6,"util":51}],30:[function(require,module,exports){
+},{"../core/widget":3,"../utils/drawing":5,"../utils/math":6,"util":35}],21:[function(require,module,exports){
 var math = require('../utils/math')
 var util = require('util');
 var widget = require('../core/widget');
@@ -5828,32 +3923,7 @@ number.prototype.release = function(e) {
 	}
 }
 
-},{"../core/widget":3,"../utils/math":6,"util":51}],31:[function(require,module,exports){
-var util = require('util');
-var widget = require('../core/widget');
-
-// panel for max duplication -- maybe this object is unnecessary.
-
-var panel = module.exports = function (target) {
-	this.defaultSize = { width: 100, height: 100 };
-	widget.call(this, target);
-}
-util.inherits(panel, widget);
-
-panel.prototype.init = function() {
-	this.draw();
-}
-
-panel.prototype.draw = function() {
-	this.erase();
-	this.makeRoundedBG();
-	with (this.context) {
-		fillStyle = this.colors.border;
-		lineWidth = this.lineWidth;
-		fill();
-	}
-}
-},{"../core/widget":3,"util":51}],32:[function(require,module,exports){
+},{"../core/widget":3,"../utils/math":6,"util":35}],22:[function(require,module,exports){
 var math = require('../utils/math')
 var util = require('util');
 var widget = require('../core/widget');
@@ -6063,7 +4133,7 @@ position.prototype.aniBounce = function() {
 position.prototype.customDestroy = function() {
 	nx.removeAni(this.aniBounce);
 }
-},{"../core/widget":3,"../utils/math":6,"util":51}],33:[function(require,module,exports){
+},{"../core/widget":3,"../utils/math":6,"util":35}],23:[function(require,module,exports){
 var util = require('util');
 var widget = require('../core/widget');
 var math = require('../utils/math')
@@ -6262,7 +4332,7 @@ range.prototype.move = function() {
 
 	}
 }
-},{"../core/widget":3,"../utils/math":6,"util":51}],34:[function(require,module,exports){
+},{"../core/widget":3,"../utils/math":6,"util":35}],24:[function(require,module,exports){
 var util = require('util');
 var widget = require('../core/widget');
 
@@ -6375,7 +4445,7 @@ select.prototype.draw = function() {
     this.canvas.style.border = "solid 2px "+this.colors.border;
 
 }
-},{"../core/widget":3,"util":51}],35:[function(require,module,exports){
+},{"../core/widget":3,"util":35}],25:[function(require,module,exports){
 var math = require('../utils/math')
 var util = require('util');
 var widget = require('../core/widget');
@@ -6591,207 +4661,7 @@ slider.prototype.move = function() {
 	this.val.value = math.prune(this.rangify(normalval),3)
 	this.transmit(this.val);
 }
-},{"../core/widget":3,"../utils/math":6,"util":51}],36:[function(require,module,exports){
-var util = require('util');
-var widget = require('../core/widget');
-
-/** 
-	@class string      
-	Animated model of a plucked string interface.
-	```html
-	<canvas nx="string"></canvas>
-	```
-	<canvas nx="string" style="margin-left:25px"></canvas>
-*/
-
-var string = module.exports = function (target) {
-	this.defaultSize = { width: 150, height: 75 };
-	widget.call(this, target);
-	
-	/** @property {object}  val  Object containing the core interactive aspects of the widget, which are also its data output. Has the following properties: 
-		| &nbsp; | data
-		| --- | ---
-		| *string* | Index of the string that is plucked (starts at 0)
-		| *x* | Where on the string the pluck occured (float 0-1);
-	*/
-	this.val = {
-		string: 0,
-		x: 0
-	}
-	/** @property {integer}  numberOfStrings How many strings in the widget. We recommend setting this property with .setStrings() */
-	this.numberOfStrings = 10;
-	this.strings = new Array();
-	this.abovestring = new Array();
-	/** @property {integer}  friction  How quickly the string slows down */
-	this.friction = 1;
-	
-	var stringdiv;
-
-	this.init();
-
-	nx.aniItems.push(this.draw.bind(this));
-}
-util.inherits(string, widget);
-
-string.prototype.init = function() {
-	stringdiv = this.GUI.h/(this.numberOfStrings + 1);
-	for (var i=0;i<this.numberOfStrings;i++) {
-		this.strings[i] = {
-			x1: this.lineWidth,
-			y1: stringdiv*(1+i),
-			x2: this.GUI.w - this.lineWidth,
-			y2: stringdiv*(i+1),
-			held: false, // whether or not it's gripped
-			vibrating: false, // whether or not its vibrating
-			force: 0, // amount of force of pull on string
-			maxstretch: 0, // vibration cap (in Y domain)
-			stretch: 0, // current point vibrating in y domain
-			direction: 0, // which direction it's vibrating
-			above: false // is mouse above or below string
-		};
-	}
-	this.draw();
-}
-
-string.prototype.pulse = function() {
-	this.draw();
-}
-
-/* @method setStrings Sets how many strings are in the widget.
-	```js
-	string1.setStrings(20);
-	``` 
-	*/
-string.prototype.setStrings = function(val) {
-	this.numberOfStrings = val;
-	this.strings = new Array();
-	this.init();
-}
-
-string.prototype.draw = function() {
-	this.erase();
-	with (this.context) {
-		strokeStyle = this.colors.border;
-		fillStyle = this.colors.fill;
-		lineWidth = this.lineWidth;
-	//	stroke();
-		fillRect(0,0,this.GUI.w,this.GUI.h);
-		strokeStyle = this.colors.accent;
-
-		for (var i = 0;i<this.strings.length;i++) {
-
-			var st = this.strings[i];
-
-			if (st.vibrating) {
-				if (st.maxstretch < 0) {
-					st.vibrating = false;
-					st.held = false;
-				}
-				st.stretch = st.stretch + st.direction;
-				
-				if (Math.abs(st.stretch) > st.maxstretch) {
-					//st.direction *= (-0.99);
-					st.direction *= -1;
-					st.stretch = st.stretch + st.direction;
-					st.maxstretch = st.maxstretch - this.friction;
-
-					st.direction = (st.direction / Math.abs(st.direction)) * (st.maxstretch/1)
-				}
-
-				beginPath();
-				moveTo(st.x1, st.y1);
-				quadraticCurveTo(this.GUI.w/2, st.y1+st.stretch, st.x2, st.y2);
-				stroke();
-				closePath();
-				st.on = true;
-
-
-			} else if (st.held) {
-					//will draw rounded
-					//if mouse is higher than string and gripup
-					//or if mouse is 
-					//	if (this.clickPos.y-st.y1<0 && st.gripup || this.clickPos.y-st.y1>0 && !st.gripup) {
-					beginPath();
-					moveTo(st.x1, st.y1);
-					quadraticCurveTo(this.clickPos.x, this.clickPos.y, st.x2, st.y2);
-					stroke();
-					closePath();
-					st.on = true;	
-					/*	} else {
-					beginPath();
-					moveTo(st.x1, st.y1);
-					lineTo(st.x2, st.y2);
-					stroke();
-					closePath();
-				} */
-			} else {
-				beginPath();
-				moveTo(st.x1, st.y1);
-				lineTo(st.x2, st.y2);
-				stroke();
-				closePath();
-				if (st.on) {
-					st.on = false;
-				}
-			}
-		}
-	}
-	this.drawLabel();
-}
-
-string.prototype.click = function() {
-	for (var i = 0;i<this.numberOfStrings;i++) {
-		this.strings[i].above = (this.clickPos.y<this.strings[i].y1);
-	}
-	this.draw();
-}
-
-string.prototype.move = function() {
-	if (this.clicked) {
-		for (var i = 0;i<this.strings.length;i++) {
-
-			//if crosses string
-			if (this.strings[i].above != (this.clickPos.y<this.strings[i].y1) ) {
-				this.strings[i].held = true;
-				this.strings[i].above ^= true;
-			}
-
-			if (this.strings[i].held && Math.abs(this.clickPos.y - this.strings[i].y1) > this.GUI.h/(this.strings.length*3)) {
-
-				this.pluck(i)
-				
-			}
-		}
-	}
-}
-
-string.prototype.release = function() {
-	for (var i = 0;i<this.strings.length;i++) {
-		if (this.strings[i].held) {
-			this.pluck(i);
-		}
-	}	
-}
-
-string.prototype.pluck = function(which) {
-	var i = which;
-	this.val = {
-		string: i,
-		x: this.clickPos.x/this.GUI.w
-	}
-	this.transmit(this.val);
-	this.strings[i].held = false;
-	this.strings[i].force = this.clickPos.y - this.strings[i].y1;
-	this.strings[i].maxstretch = Math.abs(this.clickPos.y - this.strings[i].y1);
-	this.strings[i].stretch = this.clickPos.y - this.strings[i].y1;
-	this.strings[i].vibrating = true;
-	this.strings[i].direction = (this.clickPos.y - this.strings[i].y1)/Math.abs(this.clickPos.y - this.strings[i].y1) * ((this.clickPos.y - this.strings[i].y1)/-1.2);
-}
-
-string.prototype.customDestroy = function() {
-	nx.removeAni(this.draw.bind(this));
-}
-},{"../core/widget":3,"util":51}],37:[function(require,module,exports){
+},{"../core/widget":3,"../utils/math":6,"util":35}],26:[function(require,module,exports){
 var math = require('../utils/math')
 var util = require('util');
 var widget = require('../core/widget');
@@ -6883,94 +4753,7 @@ tabs.prototype.click = function() {
 	this.transmit(this.val)
 	this.draw();
 }
-},{"../core/widget":3,"../utils/math":6,"util":51}],38:[function(require,module,exports){
-var util = require('util');
-var widget = require('../core/widget');
-
-/** 
-	@class text    
-	Text editor. Outputs the typed text string when Enter is pressed. <br> **Note:** Currently the canvas is actaully replaced by an HTML textarea object. Any inline style on your canvas may be lost in this transformation. To style the resultant textarea element, we recommend creating CSS styles for the textarea element using its ID or the textarea tag.
-	```html
-	<canvas nx="text"></canvas>
-	```
-	<canvas nx="text"></canvas>
-*/
-
-var text = module.exports = function (target) {
-	this.defaultSize = { width: 200, height: 100 };
-	widget.call(this, target);
-
-	/** @property {object}  val   
-		| &nbsp; | data
-		| --- | ---
-		| *text* | Text string
-	*/
-	this.val = {
-		text: ""
-	}
-
-	var htmlstr = '<textarea id="'+this.canvasID+'" style="height:'+this.GUI.h+'px;width:'+this.GUI.w+'px;" onkeydown="'+this.canvasID+'.change(event,this)"></textarea><canvas height="1px" width="1px" style="display:none"></canvas>'                   
-	var canv = this.canvas
-	var cstyle = this.canvas.style
-	var parent = canv.parentNode;
-	var newdiv = document.createElement("span");
-	newdiv.innerHTML = htmlstr;
-	newdiv.className = "nx"
-	parent.replaceChild(newdiv,canv)
-	this.el = document.getElementById(this.canvasID)
-
-	for (var prop in cstyle)
-    	this.el.style[prop] = cstyle[prop];
-
-	this.el.style.display = "block"
-	this.el.style.backgroundColor = this.colors.fill
-	this.el.style.border = "none"
-	this.el.style.color = this.colors.black
-	this.el.style.outline = "none"
-	this.el.style.resize = "none"
-	this.el.style.boxSizing = "border-box"
-	this.el.style.padding = "5px"
-	this.el.style.fontFamily = nx.font
-	this.el.style.fontSize = "16px"
-	this.el.className = ""
-
-
-	this.canvas = document.getElementById(this.canvasID);
-
-
-}
-util.inherits(text, widget);
-
-text.prototype.init = function() {
-	
-	this.canvas.ontouchstart = null;
-	this.canvas.ontouchmove = null;
-	this.canvas.ontouchend = null;
-
-    this.canvas.style.backgroundColor = this.colors.fill;
-    this.canvas.style.color = this.colors.black;
-	
-}
-
-// should have a modified "set" function
-text.prototype.change = function(e,el) {
-	this.val.text = el.value
-	if (e.which=="13") {
-		this.transmit(this.val)
-		this.val.text = ""
-		this.draw()
-		e.preventDefault()
-	}
-}
-
-text.prototype.draw = function() {
-	// needed especially for ghost
-	this.el.value = this.val.text 
-	
-    this.canvas.style.backgroundColor = this.colors.fill;
-    this.canvas.style.color = this.colors.black;
-}
-},{"../core/widget":3,"util":51}],39:[function(require,module,exports){
+},{"../core/widget":3,"../utils/math":6,"util":35}],27:[function(require,module,exports){
 var math = require('../utils/math')
 var util = require('util');
 var widget = require('../core/widget');
@@ -7107,7 +4890,7 @@ tilt.prototype.customDestroy = function() {
 	window.removeEventListener("deviceorientation",this.boundChromeTilt,false);
 	window.removeEventListener("mozOrientation",this.boundMozTilt,false);
 }
-},{"../core/widget":3,"../utils/math":6,"util":51}],40:[function(require,module,exports){
+},{"../core/widget":3,"../utils/math":6,"util":35}],28:[function(require,module,exports){
 var drawing = require('../utils/drawing');
 var util = require('util');
 var widget = require('../core/widget');
@@ -7179,109 +4962,7 @@ toggle.prototype.click = function() {
 	this.draw();
 	this.transmit(this.val);
 }
-},{"../core/widget":3,"../utils/drawing":5,"util":51}],41:[function(require,module,exports){
-var math = require('../utils/math')
-var util = require('util');
-var widget = require('../core/widget');
-
-/** 
-	@class trace      
-	Path/gesture drawing canvas
-	```html
-	<canvas nx="trace"></canvas>
-	```
-	<canvas nx="trace" style="margin-left:25px"></canvas>
-*/
-
-var trace = module.exports = function (target) {
-
-	// define a default size
-	this.defaultSize = { width: 200, height: 200 };
-
-	widget.call(this, target);
-	
-	/** @property {integer} nodeSize Size of path node graphic. */
-	this.nodeSize = 8;
-
-	/** @property {object}  val   val is an object containing the main interactive / actionable aspects of the widget.
-		| &nbsp; | data
-		| --- | ---
-		| *path* | array of objects containing x/y of each path node
-	*/
-	this.val = {
-		path: []
-	}
-
-	this.limit = 20;
-	this.space = 0;
-	
-	this.init();
-}
-
-// inherit the widget object template
-util.inherits(trace, widget);
-
-// .init() is called automatically when the widget is created on a webpage.
-trace.prototype.init = function() {
-	this.nodeSize = Math.min(this.GUI.h,this.GUI.w)/10;
-	this.nodeSize = Math.max(this.nodeSize,10)
-	this.draw();
-}
-
-// .draw() should be used for any graphics activity
-trace.prototype.draw = function() {
-	this.erase();
-	with (this.context) {
-
-		fillStyle = this.colors.fill;
-		fillRect(0,0,this.GUI.w,this.GUI.h);
-		fillStyle = this.colors.fill;
-
-		globalAlpha = 0.7;
-		for (var i=0;i<this.val.path.length;i++) {
-			var drawingX = this.val.path[i].x * this.GUI.w
-			var drawingY = this.val.path[i].y * this.GUI.h
-
-			beginPath();
-				fillStyle = this.colors.accent;
-				arc(drawingX, drawingY, this.nodeSize, 0, Math.PI*2, true);					
-				fill();
-			closePath();
-
-		}
-		globalAlpha = 1;
-
-	}
-	
-	this.drawLabel();
-}
-
-trace.prototype.click = function() {
-	this.val.path = []
-	this.space = 0;
-	this.move()
-	this.draw()
-}
-
-trace.prototype.move = function() {
-	this.space++
-	if (this.space>2 && this.val.path.length<this.limit) {
-		this.space = 0
-		var x = math.clip(this.clickPos.x,0,this.GUI.w) / this.GUI.w
-		var y = math.clip(this.clickPos.y,0,this.GUI.h) / this.GUI.h
-		this.val.path.push({ x: x, y: y })
-		/*if (this.val.path.length>=this.limit) {
-			this.val.path = this.val.path.slice(1)
-		} */
-	}
-	this.draw();
-}
-
-trace.prototype.release = function() {
-	this.transmit(this.val);
-}
-
-},{"../core/widget":3,"../utils/math":6,"util":51}],42:[function(require,module,exports){
+},{"../core/widget":3,"../utils/drawing":5,"util":35}],29:[function(require,module,exports){
 var drawing = require('../utils/drawing');
 var util = require('util');
 var widget = require('../core/widget');
@@ -7529,154 +5210,7 @@ typewriter.prototype.customDestroy = function() {
 	window.removeEventListener("keydown", this.boundType);
 	window.removeEventListener("keyup", this.boundUntype);
 }
-},{"../core/widget":3,"../utils/drawing":5,"util":51}],43:[function(require,module,exports){
-var math = require('../utils/math')
-var util = require('util');
-var widget = require('../core/widget');
-
-/** 
-	@class vinyl      
-	For the boom bap
-	```html
-	<canvas nx="vinyl"></canvas>
-	```
-<!--	<canvas nx="vinyl" style="margin-left:25px"></canvas> -->
-*/
-
-var vinyl = module.exports = function (target) {
-	this.defaultSize = { width: 100, height: 100 };
-	widget.call(this, target);
-	
-	this.circleSize;
-
-	/** @property speed The rotation increment. Default is 0.05. Not to be confused with .val.speed (see below) which is the data output. During rotation, .speed will always move towards .defaultSpeed */
-	this.speed = 0.05;
-	/** @property defaultSpeed The "steady-state" rotation increment. Default is 0.05. During rotation, if .speed is changed, it will gradually move towards this. */
-	this.defaultspeed = 0.05
-	this.rotation = 0;
-	this.hasMovedOnce = false;
-
-	this.lockResize = true;
-	
-	/** @property {object}  val  Object containing the core interactive aspects of the widget, which are also its data output. Has the following properties: 
-		| &nbsp; | data
-		| --- | ---
-		| *speed*| Current speed of the record player's rotation. (Normal is 1.)
-	*/
-	this.val = {
-		speed: 0
-	}
-	this.init();
-	nx.aniItems.push(this.spin.bind(this));
-}
-util.inherits(vinyl, widget);
-
-vinyl.prototype.init = function() {
-
-	this.circleSize = (Math.min(this.center.x, this.center.y)-this.lineWidth);
-	this.draw();
-}
-
-vinyl.prototype.draw = function() {
-	this.erase()
-
-	with (this.context) {
-		strokeStyle = this.colors.border;
-		fillStyle = this.colors.fill;
-		fillRect(0,0,this.GUI.w,this.GUI.h)
-		
-		//draw main circle
-		beginPath();
-		fillStyle = this.colors.black;
-		arc(this.center.x, this.center.y, this.circleSize-5, 0, Math.PI*2, true);
-		fill();
-		closePath();
-
-
-		//draw circle in center
-		beginPath();
-		fillStyle = this.colors.accent;
-		arc(this.center.x, this.center.y*1, this.circleSize/4, 0, Math.PI*2, false);
-		fill()
-		closePath();
-
-
-		//draw tint
-		beginPath();
-		globalAlpha = 0.5;
-		fillStyle = this.colors.fill;
-		arc(this.center.x, this.center.y, this.circleSize, this.rotation, this.rotation + 0.4, false);
-		lineTo(this.center.x, this.center.y);
-		arc(this.center.x, this.center.y, this.circleSize, this.rotation+Math.PI, this.rotation +Math.PI+ 0.4, false);
-		lineTo(this.center.x, this.center.y);
-		fill();
-		globalAlpha = 1;
-		closePath(); 
-
-
-		//draw white circle in center
-		beginPath();
-		fillStyle = this.colors.white;
-		arc(this.center.x, this.center.y*1, this.circleSize/16, 0, Math.PI*2, false);
-		fill()
-		closePath(); 
-
-	}
-
-	this.drawLabel();
-}
-
-vinyl.prototype.click = function(e) {
-	this.hasMovedOnce = false;
-	this.lastRotation = this.rotation
-	this.grabAngle = this.rotation % (Math.PI*2)
-	this.grabPos = math.toPolar(this.clickPos.x-this.center.x,this.clickPos.y-this.center.y).angle
-
-}
-
-vinyl.prototype.move = function() {
-
-	if (!this.hasMovedOnce) {
-		this.hasMovedOnce = true;
-		this.grabAngle = this.rotation % (Math.PI*2)
-		this.grabPos = math.toPolar(this.clickPos.x-this.center.x,this.clickPos.y-this.center.y).angle
-	}
-
-	this.rotation = math.toPolar(this.clickPos.x-this.center.x,this.clickPos.y-this.center.y).angle + this.grabAngle - this.grabPos	
-
-
-}
-
-vinyl.prototype.release = function() {
-	this.speed = ((this.rotation - this.lastRotation) + (this.lastRotation-this.lastRotation2))/2 ;
-}
-
-vinyl.prototype.spin = function() {
-
-	if (this.clicked) { 
-		this.speed /= 1.1;
-	} else {
-		this.speed = this.speed*0.9 + this.defaultspeed*0.1
-	}
-
-	// may need to math.clip(this.val.speed,-10,10);
-	this.val.speed = (this.rotation - this.lastRotation) * 20; // normalizes it to 1
-
-	this.lastRotation2 = this.lastRotation
-	this.lastRotation = this.rotation
-
-	this.rotation += this.speed
-
-	this.draw();
-
-	this.transmit(this.val)
-	
-}
-
-vinyl.prototype.customDestroy = function() {
-	nx.removeAni(this.spin.bind(this));
-}
-},{"../core/widget":3,"../utils/math":6,"util":51}],44:[function(require,module,exports){
+},{"../core/widget":3,"../utils/drawing":5,"util":35}],30:[function(require,module,exports){
 var util = require('util');
 var widget = require('../core/widget');
 var math = require('../utils/math')
@@ -8041,587 +5575,7 @@ waveform.prototype.move = function() {
 	this.draw();
 
 }
-},{"../core/widget":3,"../utils/math":6,"util":51}],45:[function(require,module,exports){
-var util = require('util');
-var widget = require('../core/widget');
-var math = require('../utils/math')
-
-/** 
-	@class wavegrain      
-	wavegrain visualizer and selecter
-	```html
-	<canvas nx="wavegrain"></canvas>
-	```
-*/
-
-var wavegrain = module.exports = function (target) {
-	this.defaultSize = { width: 400, height: 125 };
-	widget.call(this, target);
-
-	/** @property {object}  val  Object containing core interactive aspects of widget, which are also its data output. Has the following properties: 
-		| &nbsp; | data
-		| --- | ---
-		| *starttime* | wavegrain selection start position in milliseconds (integer)
-		| *stoptime* | wavegrain selection end position in milliseconds (integer)
-		| *looptime* | Selection size, in milliseconds (integer)
-	*/
-	this.val = {
-		starttime: 0,
-		stoptime: 0,
-		looptime: 50,
-		start: 0,
-		stop: 0,
-		size: 0,
-		level: 0,
-		state: "off"
-	}
-
-	this.handle;
-	this.relhandle;
-	this.cap;
-	this.firsttouch = "start";
-
-	/** @property {Array} buffer  Contains multiple arrays of reduced buffer data, for visualization */
-	this.buffer = []
-
-	if (nx.isMobile) {
-		/** @property {integer} definition  Horizontal definition of the visualization. Value of 3 means the wavegrain will be represented in 3 pixel chunks. Higher numbers (4+) lead to a smaller graphics load. Smaller numbers (1-3) look better. Default is 1 for desktop renders, 3 for mobile renders. */
-		this.definition = 1;
-	} else {
-		this.definition = 1;
-	}
-
-	this.pieces = false;
-
-	/** @property {integer} channels  How many channels in the wavegrain */
-	this.channels = 1
-	this.rawbuffer = []
-
-	this.times = [
-		{ dur: 10 , format: 1 },
-		{ dur: 50 , format: 1 },
-		{ dur: 100 , format: 1 },
-		{ dur: 200 , format: 1 },
-		{ dur: 500 , format: 1 },
-		{ dur: 1000 , format: 1 },
-		{ dur: 2000 , format: 1 },
-		{ dur: 5000 , format: 1 },
-		{ dur: 10000 , format: 3 },
-		{ dur: 15000 , format: 3 },
-		{ dur: 60000 , format: 3 }, // 1 min
-		{ dur: 120000 , format: 3 }, // 2 mins
-		{ dur: 300000 , format: 3 }, // 5 mins
-		{ dur: 600000 , format: 3 }, // 10 mins
-	]
-	this.timescale = false
-
-	// to do --
-	// // sample rate adjustments
-	// .select(500,1000)
-
-	/** @property {string}  mode  Mode of interaction. "edge" mode lets you drag each edge of the wavegrain individually. "area" mode (default) lets you drag the wavegrain as a whole (with parallel mouse movement) or scale the wavegrain as a whole (with transverse mouse movement) */
-	this.mode = "area" // modes: "edge", "area"
-	this.touchdown = new Object();
-	this.init();
-}
-util.inherits(wavegrain, widget);
-
-wavegrain.prototype.init = function() {
-
-	this.pieces = ~~(this.GUI.w/this.definition);
-
-	this.draw();
-}
-
-
-/** 
-  @method setBuffer 
-  Load a web audio AudioBuffer into the wavegrain ui, for analysis and visualization.
-  @param {AudioBuffer} [buffer] The buffer to be loaded.
-  */
-wavegrain.prototype.setBuffer = function(prebuff) {
-
-	this.channels = prebuff.numberOfChannels
-	this.duration = prebuff.duration
-	this.sampleRate = prebuff.sampleRate
-	this.waveHeight = this.GUI.h / this.channels
-
-	// timescale
-	this.durationMS = (this.duration * 1000) 
-	this.timescale = 0
-	while (~~(this.durationMS/this.times[this.timescale].dur) > 7 && this.timescale < this.times.length ) {
-		this.timescale++;
-	}
-	this.timescale = this.times[this.timescale]
-
-	this.rawbuffer = []
-	this.buffer = []
-
-	// reduce/crush buffers
-	for (var i=0;i<this.channels;i++) {
-		this.rawbuffer.push(prebuff.getChannelData(0))
-		this.buffer.push([])
-
-		// counts faster (& less accurately) through larger buffers.
-		// for every 5 seconds in the buffer, our counter skips 1.
-		// so a 10 second buffer will only look at every 3rd sample
-		//   when calculating wavegrain.
-		var countinc = ~~(this.rawbuffer[0].length / (this.sampleRate*5)) + 1
-
-		var groupsize = ~~(this.rawbuffer[i].length/this.pieces)
-		var cmax = 0
-		var cmin = 0
-		var group = 0
-		var vis = []
-		for (var j=0;j<this.rawbuffer[i].length;j += countinc) {
-			if (this.rawbuffer[i][j]>0) {
-				cmax = Math.max(cmax,this.rawbuffer[i][j])
-			} else {
-				cmin = Math.min(cmin,this.rawbuffer[i][j])
-			}
-			if (j > group * groupsize) {
-				this.buffer[i].push([cmax,cmin])
-				group++
-				cmin = 0
-				cmax = 0
-			}
-		}
-	}
-
-	if (this.val.start && this.val.stop) {
-
-	}
-
-	this.val.starttime = Math.round(this.val.start * this.durationMS)
-	this.val.stoptime = Math.round(this.val.stop * this.durationMS)
-	//this.val.looptime = Math.round(this.val.size * this.durationMS)
-	
-
-	this.draw()
-
-}
-
-/** 
-  @method select 
-  Set the selection start and end points.
-  @param {integer} [start] Selection start point in milliseconds
-  @param {integer} [end] Selection end point in milliseconds
-  */
-wavegrain.prototype.select = function(start,stop) {
-	this.val.start = math.clip(start / this.durationMS,0,1)
-	this.val.stop = math.clip(stop / this.durationMS,0,1)
-	this.val.size = this.val.stop - this.val.start
-	this.val.starttime = start
-	this.val.stoptime = stop
-	this.val.looptime = start - stop
-	this.transmit(this.val)
-	this.draw()
-}
-
-
-wavegrain.prototype.draw = function() {
-	//this.erase();
-
-	with (this.context) {
-		//bg
-		fillStyle = this.colors.fill;
-		fillRect(0,0,this.GUI.w,this.GUI.h);
-
-		//waveform
-		for (var i=0;i<this.buffer.length;i++) {
-			fillStyle = this.colors.black
-			this.waveTop = i*this.waveHeight;
-			this.waveCenter = this.waveTop + this.waveHeight/2
-			for (var j=0;j<this.buffer[i].length;j++) {
-				var ht1 = this.waveCenter - this.buffer[i][j][0]*this.waveHeight
-				var ht2 = this.waveCenter + Math.abs(this.buffer[i][j][1]*this.waveHeight)
-				ht2 = ht2 - ht1
-				fillRect( j*this.definition, ht1 , this.definition, ht2)
-			}
-			this.buffer[i]
-
-		}
-
-		//time bar - top
-		globalAlpha = 0.3
-		fillStyle = this.colors.border
-		fillRect(0,0,this.GUI.w,16)
-		globalAlpha = 1
-
-
-		textBaseline = "middle"
-		textAlign = "left"
-		fontSize = "8px"
-
-		//time lines
-		if (this.timescale) {
-			for (var i=1; i<this.durationMS/this.timescale.dur; i++) {
-				var x = (i * this.timescale.dur) / this.durationMS
-				x *= this.GUI.w
-				fillStyle = this.colors.border
-				fillRect(x,0,1,this.GUI.h)
-				fillStyle = this.colors.black
-				globalAlpha = 0.6
-				fillText(this.msToTime(i * this.timescale.dur,this.timescale.format),x+5,8)
-				globalAlpha = 1
-			}	
-		} 
-		
-
-		if (this.val.state=="on") {
-			// range selection
-			var x1 = this.val.start*this.GUI.w;
-			var y1 = this.val.level * this.GUI.h;
-			var x2 = this.val.stop*this.GUI.w;
-			var y2 = this.GUI.h;
-		   
-			fillStyle = this.colors.accent;
-			strokeStyle = this.colors.accent;
-			lineWidth = 2
-		
-			globalAlpha = 0.3	
-			beginPath()
-			//arc(x1,y1,x2-x1,0,Math.PI*2,false)
-			arc(x1,y1,30,0,Math.PI*2,false)
-			fill()
-			globalAlpha = 0.7
-			stroke()
-		
-		/*	globalAlpha = 0.1
-			fillRect(x1,0,x2-x1,y2);
-			globalAlpha = 0.3
-			strokeRect(x1,0,x2-x1,y2);
-			globalAlpha = 1
-			fillRect(x1,y1,x2-x1,y2-y1);
-			strokeRect(x1,y1,x2-x1,y2-y1); */
-			globalAlpha = 1
-		}
-
-		
-	}
-
-}
-
-wavegrain.prototype.msToTime = function(rawms,format) {
-
-  var format = format ? format : 2
-
-  var s = ~~(rawms / 1000)
-  var secs = s % 60;
-  s = (s - secs) / 60;
-  var mins = s % 60;
-  var hrs = (s - mins) / 60;
-  var ms = rawms % 1000
-
-  //correct digits
-  secs = (secs < 10 && mins) ? secs + '0' : secs;
-  //ms = (ms < 10 && secs) ? ms + '0' : ms;
-
-  if (format==1) {
-  	return secs + '.' + ms;
-  } else if (format==2) {
-  	return mins + ':' + secs + '.' + ms;
-  } else if (format==3) {
-  	return mins + ':' + secs;
-  }
-
-}
-
-wavegrain.prototype.click = function() {
-	if (this.durationMS) {
-		this.val.state = "on"
-		this.move();
-	//	this.tick();
-	//	this.interval = setInterval(this.tick.bind(this),this.val.looptime)
-	}
-}
-
-wavegrain.prototype.move = function() {
-
-	if (this.clickPos.x < 0) { this.clickPos.x = 0 }
-	if (this.clickPos.x > this.GUI.w) { this.clickPos.x = this.GUI.w }
-	if (this.clickPos.y < 0) { this.clickPos.y = 0 }
-	if (this.clickPos.y > this.GUI.h) { this.clickPos.y = this.GUI.h }
-
-	this.val.state = "on"
-	if (this.durationMS) {
-		this.val.start = this.clickPos.x/this.GUI.w - (this.val.looptime/this.durationMS)/2
-
-		this.val.size = this.val.looptime/this.durationMS
-
-	//	this.val.start = math.clip(this.val.start,0,1-this.val.size)
-
-		this.val.stop = this.val.start + this.val.size
-
-		this.val.starttime = Math.round(this.val.start * this.durationMS)
-		this.val.looptime = Math.round(this.val.size * this.durationMS)
-		this.val.stoptime = this.val.starttime + this.val.looptime
-
-		this.val.level = this.clickPos.y / this.GUI.h
-
-		this.transmit(this.val);
-	
-		this.draw();
-	}
-
-}
-
-
-wavegrain.prototype.release = function() {
-	this.val.state = "off"
-	this.transmit(this.val);
-	this.draw()
-//	clearInterval(this.interval)
-}
-
-wavegrain.prototype.tick = function() {
-	this.val.state = "on"
-	this.transmit(this.val);
-}
-},{"../core/widget":3,"../utils/math":6,"util":51}],46:[function(require,module,exports){
-var math = require('../utils/math')
-var util = require('util');
-var widget = require('../core/widget');
-
-/** 
-	@class windows      
-	Scalable windows
-	```html
-	<canvas nx="windows"></canvas>
-	```
-	<canvas nx="windows" style="margin-left:25px"></canvas>
-*/
-
-var windows = module.exports = function (target) {
-
-	this.defaultSize = { width: 200, height: 200 };
-
-	widget.call(this, target);
-
-	this.val = {
-		items: [],
-		add: false,
-		remove: false,
-		change: false
-	}
-
-	//this.val.items = []
-	this.size = .25;
-	this.meta = false;
-	this.resizing = false;
-	
-	this.init();
-
-	document.addEventListener('keydown',function(e) {
-		if (e.shiftKey && !this.meta) {
-			this.meta = true;
-			this.draw();
-		}
-	}.bind(this))
-	document.addEventListener('keyup',function(e) {
-		if (!e.shiftKey && this.meta) {
-			this.meta = false;
-			this.draw();
-		}
-	}.bind(this))
-}
-util.inherits(windows, widget);
-
-windows.prototype.init = function() {
-	this.draw();
-}
-
-windows.prototype.add = function(x,y,w,h) {
-	this.val.items.push({
-		x: x,
-		y: y,
-		w: w,
-		h: h
-	})
-	this.draw();
-}
-
-windows.prototype.setWindow = function(index, loc) {
-	this.val.items[index] = loc;
-	this.draw();
-}
-
-windows.prototype.remove = function(index) {
-	this.val.items.splice(index,1)
-	this.val.add = false
-	this.val.remove = index
-	this.val.change = false
-	/* this.val = {
-		remove: index,
-		items: this.val.items
-	} */
-	this.transmit(this.val)
-	this.draw();
-}
-
-windows.prototype.draw = function() {
-//	this.erase()
-	with (this.context) {
-
-		if (!this.meta) {
-			fillStyle = this.colors.fill;
-		} else {
-			fillStyle = this.colors.border;
-		}
-
-		fillRect(0,0,this.GUI.w,this.GUI.h);
-
-		globalAlpha = 0.8;
-	
-		for (var i=0;i<this.val.items.length;i++) {
-			fillStyle = this.colors.accent;
-			var x = this.val.items[i].x*this.GUI.w
-			var y = this.val.items[i].y*this.GUI.h
-			var w = this.val.items[i].w*this.GUI.w
-			var h = this.val.items[i].h*this.GUI.h
-			fillRect(x,y,w,h)
-		    
-			strokeStyle = this.colors.fill;
-			lineWidth = 1;
-		    strokeRect(x+w-10,y+h-10,10,10)
-		  //  strokeRect((this.val.items[i].x + this.val.items[i].w/2)*this.GUI.w - 10, (this.val.items[i].y + this.val.items[i].h/2)*this.GUI.h - 10,10,10)
-		}
-
-		globalAlpha = 1;
-
-	}
-	
-	this.drawLabel();
-}
-
-windows.prototype.click = function() {
-
-	this.holds = false;
-	var cx = this.clickPos.x / this.GUI.w;
-	var cy = this.clickPos.y / this.GUI.h;
-	for (var i=0;i<this.val.items.length;i++) {
-		if (nx.isInside({ x: cx, y: cy }, this.val.items[i])) {
-			this.holds = i;
-			if (this.clickPos.x > (this.val.items[i].x+this.val.items[i].w)*this.GUI.w - 10 && this.clickPos.x < (this.val.items[i].x+this.val.items[i].w)*this.GUI.w && this.clickPos.y > (this.val.items[i].y+this.val.items[i].h)*this.GUI.h - 10 && this.clickPos.y < (this.val.items[i].y+this.val.items[i].h)*this.GUI.h) {
-				this.resizing = true;
-			}
-		}
-	}
-
-	if (this.holds===false) {
-		this.val.items.push({
-			x: cx,
-			y: cy,
-			w: this.size,
-			h: this.size
-		})
-		this.holds = this.val.items.length-1;
-		this.hasMoved = true;
-		this.val.add = this.val.items[this.holds]
-		this.val.remove = false
-		this.val.change = false
-		/* this.val = {
-			add: this.val.items[this.holds],
-			items: this.val.items
-		} */
-		this.transmit(this.val)
-	}
-	if (this.meta) {
-		for (var i=0;i<this.val.items.length;i++) {
-			this.val.items[i].tx = this.val.items[i].x
-			this.val.items[i].ty = this.val.items[i].y
-		}
-		this.tx = cx
-		this.ty = cy
-	}
-	this.draw();
-}
-
-windows.prototype.move = function() {
-	var cx = this.clickPos.x / this.GUI.w;
-	var cy = this.clickPos.y / this.GUI.h;
-	if (this.resizing) {
-		if (!this.meta) {
-			this.val.items[this.holds].w = cx - this.val.items[this.holds].x
-			this.val.items[this.holds].h = cy - this.val.items[this.holds].y
-			this.val.items[this.holds] = this.restrict(this.val.items[this.holds])
-		} else {
-			for (var i=0;i<this.val.items.length;i++) {
-				this.val.items[i].w = cx - this.val.items[this.holds].x
-				this.val.items[i].h = cy - this.val.items[this.holds].y
-				this.val.items[i] = this.restrict(this.val.items[i])
-			}
-		}
-	} else {
-		if (!this.meta) {
-			this.val.items[this.holds].x = cx;
-			this.val.items[this.holds].y = cy;	
-			this.val.items[this.holds] = this.restrict(this.val.items[this.holds])
-		} else {
-			for (var i=0;i<this.val.items.length;i++) {
-				this.val.items[i].x = (cx - this.tx) + this.val.items[i].tx;
-				this.val.items[i].y = (cy - this.ty) + this.val.items[i].ty;
-				this.val.items[i] = this.restrict(this.val.items[i])	
-			}
-		}	
-	}
-
-
-	
-	this.val.change = true;
-	this.val.add = false;
-	this.val.remove = false;
-	/*this.val = {
-		change: true,
-		items: this.val.items
-	} */
-	this.transmit(this.val)
-	this.draw();
-}
-
-windows.prototype.release = function() {
-	if (!this.hasMoved) {
-		if (this.meta) {
-			this.val.add = false
-			this.val.remove = "all"
-			this.val.change = false
-			/*this.val = {
-				remove: "all",
-				items: this.val.items
-			} */
-			this.val.items = []
-		} else {
-			this.val.add = false
-			this.val.remove = this.holds
-			this.val.change = false
-		/*	this.val = {
-				remove: this.holds,
-				items: this.val.items
-			} */
-			this.val.items.splice(this.holds,1)
-		}
-	}
-	this.resizing = false;
-	this.transmit(this.val);
-	this.draw();
-}
-
-windows.prototype.restrict = function(item) {
-	if (item.x < 0) {
-		item.x = 0
-	}
-	if (item.y < 0) {
-		item.y = 0
-	}
-	if (item.x + item.w > 1) {
-		item.x = 1 - item.w
-	}
-	if (item.y + item.h > 1) {
-		item.y = 1 - item.h
-	}	
-	return item;
-}
-},{"../core/widget":3,"../utils/math":6,"util":51}],47:[function(require,module,exports){
+},{"../core/widget":3,"../utils/math":6,"util":35}],31:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -8924,32 +5878,7 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}],48:[function(require,module,exports){
-if (typeof Object.create === 'function') {
-  // implementation from standard node.js 'util' module
-  module.exports = function inherits(ctor, superCtor) {
-    ctor.super_ = superCtor
-    ctor.prototype = Object.create(superCtor.prototype, {
-      constructor: {
-        value: ctor,
-        enumerable: false,
-        writable: true,
-        configurable: true
-      }
-    });
-  };
-} else {
-  // old school shim for old browsers
-  module.exports = function inherits(ctor, superCtor) {
-    ctor.super_ = superCtor
-    var TempCtor = function () {}
-    TempCtor.prototype = superCtor.prototype
-    ctor.prototype = new TempCtor()
-    ctor.prototype.constructor = ctor
-  }
-}
-
-},{}],49:[function(require,module,exports){
+},{}],32:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
@@ -9014,14 +5943,39 @@ process.chdir = function (dir) {
     throw new Error('process.chdir is not supported');
 };
 
-},{}],50:[function(require,module,exports){
+},{}],33:[function(require,module,exports){
+if (typeof Object.create === 'function') {
+  // implementation from standard node.js 'util' module
+  module.exports = function inherits(ctor, superCtor) {
+    ctor.super_ = superCtor
+    ctor.prototype = Object.create(superCtor.prototype, {
+      constructor: {
+        value: ctor,
+        enumerable: false,
+        writable: true,
+        configurable: true
+      }
+    });
+  };
+} else {
+  // old school shim for old browsers
+  module.exports = function inherits(ctor, superCtor) {
+    ctor.super_ = superCtor
+    var TempCtor = function () {}
+    TempCtor.prototype = superCtor.prototype
+    ctor.prototype = new TempCtor()
+    ctor.prototype.constructor = ctor
+  }
+}
+
+},{}],34:[function(require,module,exports){
 module.exports = function isBuffer(arg) {
   return arg && typeof arg === 'object'
     && typeof arg.copy === 'function'
     && typeof arg.fill === 'function'
     && typeof arg.readUInt8 === 'function';
 }
-},{}],51:[function(require,module,exports){
+},{}],35:[function(require,module,exports){
 (function (process,global){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -9143,6 +6097,8 @@ exports.debuglog = function(set) {
  * Echos the value of a value. Trys to print the value out
  * in the best way possible given the different types.
  *
+ * @param {Object} obj The object to print out.
+ * @param {Object} opts Optional options object that alters the output.
  */
 /* legacy: obj, showHidden, depth, colors*/
 function inspect(obj, opts) {
@@ -9577,6 +6533,19 @@ exports.log = function() {
 };
 
 
+/**
+ * Inherit the prototype methods from one constructor into another.
+ *
+ * The Function.prototype.inherits from lang.js rewritten as a standalone
+ * function (not on Function.prototype). NOTE: If this file is to be loaded
+ * during bootstrapping this function needs to be rewritten using some native
+ * functions as prototype setup using normal JavaScript does not work as
+ * expected during bootstrapping (see mirror.js in r114903).
+ *
+ * @param {function} ctor Constructor function which needs to inherit the
+ *     prototype.
+ * @param {function} superCtor Constructor function to inherit prototype from.
+ */
 exports.inherits = require('inherits');
 
 exports._extend = function(origin, add) {
@@ -9596,14 +6565,22 @@ function hasOwnProperty(obj, prop) {
 }
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":50,"_process":49,"inherits":48}],52:[function(require,module,exports){
+},{"./support/isBuffer":34,"_process":32,"inherits":33}],36:[function(require,module,exports){
 var hasOwn = Object.prototype.hasOwnProperty;
-var toString = Object.prototype.toString;
+var toStr = Object.prototype.toString;
 var undefined;
+
+var isArray = function isArray(arr) {
+	if (typeof Array.isArray === 'function') {
+		return Array.isArray(arr);
+	}
+
+	return toStr.call(arr) === '[object Array]';
+};
 
 var isPlainObject = function isPlainObject(obj) {
 	'use strict';
-	if (!obj || toString.call(obj) !== '[object Object]') {
+	if (!obj || toStr.call(obj) !== '[object Object]') {
 		return false;
 	}
 
@@ -9655,10 +6632,10 @@ module.exports = function extend() {
 				}
 
 				// Recurse if we're merging plain objects or arrays
-				if (deep && copy && (isPlainObject(copy) || (copyIsArray = Array.isArray(copy)))) {
+				if (deep && copy && (isPlainObject(copy) || (copyIsArray = isArray(copy)))) {
 					if (copyIsArray) {
 						copyIsArray = false;
-						clone = src && Array.isArray(src) ? src : [];
+						clone = src && isArray(src) ? src : [];
 					} else {
 						clone = src && isPlainObject(src) ? src : {};
 					}
@@ -9679,24 +6656,24 @@ module.exports = function extend() {
 };
 
 
-},{}],53:[function(require,module,exports){
-/* Web Font Loader v1.6.10 - (c) Adobe Systems, Google. License: Apache 2.0 */
-(function(){function aa(a,b,c){return a.call.apply(a.bind,arguments)}function ba(a,b,c){if(!a)throw Error();if(2<arguments.length){var d=Array.prototype.slice.call(arguments,2);return function(){var c=Array.prototype.slice.call(arguments);Array.prototype.unshift.apply(c,d);return a.apply(b,c)}}return function(){return a.apply(b,arguments)}}function n(a,b,c){n=Function.prototype.bind&&-1!=Function.prototype.bind.toString().indexOf("native code")?aa:ba;return n.apply(null,arguments)}var p=Date.now||function(){return+new Date};function q(a,b){this.F=a;this.k=b||a;this.H=this.k.document}var ca=!!window.FontFace;q.prototype.createElement=function(a,b,c){a=this.H.createElement(a);if(b)for(var d in b)b.hasOwnProperty(d)&&("style"==d?a.style.cssText=b[d]:a.setAttribute(d,b[d]));c&&a.appendChild(this.H.createTextNode(c));return a};function s(a,b,c){a=a.H.getElementsByTagName(b)[0];a||(a=document.documentElement);a.insertBefore(c,a.lastChild)}
-function t(a,b,c){b=b||[];c=c||[];for(var d=a.className.split(/\s+/),e=0;e<b.length;e+=1){for(var f=!1,g=0;g<d.length;g+=1)if(b[e]===d[g]){f=!0;break}f||d.push(b[e])}b=[];for(e=0;e<d.length;e+=1){f=!1;for(g=0;g<c.length;g+=1)if(d[e]===c[g]){f=!0;break}f||b.push(d[e])}a.className=b.join(" ").replace(/\s+/g," ").replace(/^\s+|\s+$/,"")}function u(a,b){for(var c=a.className.split(/\s+/),d=0,e=c.length;d<e;d++)if(c[d]==b)return!0;return!1}
-function v(a){if("string"===typeof a.fa)return a.fa;var b=a.k.location.protocol;"about:"==b&&(b=a.F.location.protocol);return"https:"==b?"https:":"http:"}function x(a,b,c){function d(){l&&e&&f&&(l(g),l=null)}b=a.createElement("link",{rel:"stylesheet",href:b,media:"all"});var e=!1,f=!0,g=null,l=c||null;ca?(b.onload=function(){e=!0;d()},b.onerror=function(){e=!0;g=Error("Stylesheet failed to load");d()}):setTimeout(function(){e=!0;d()},0);s(a,"head",b)}
-function y(a,b,c,d){var e=a.H.getElementsByTagName("head")[0];if(e){var f=a.createElement("script",{src:b}),g=!1;f.onload=f.onreadystatechange=function(){g||this.readyState&&"loaded"!=this.readyState&&"complete"!=this.readyState||(g=!0,c&&c(null),f.onload=f.onreadystatechange=null,"HEAD"==f.parentNode.tagName&&e.removeChild(f))};e.appendChild(f);setTimeout(function(){g||(g=!0,c&&c(Error("Script load timeout")))},d||5E3);return f}return null};function z(){this.S=0;this.K=null}function A(a){a.S++;return function(){a.S--;B(a)}}function C(a,b){a.K=b;B(a)}function B(a){0==a.S&&a.K&&(a.K(),a.K=null)};function D(a){this.ea=a||"-"}D.prototype.d=function(a){for(var b=[],c=0;c<arguments.length;c++)b.push(arguments[c].replace(/[\W_]+/g,"").toLowerCase());return b.join(this.ea)};function E(a,b){this.Q=a;this.M=4;this.L="n";var c=(b||"n4").match(/^([nio])([1-9])$/i);c&&(this.L=c[1],this.M=parseInt(c[2],10))}E.prototype.getName=function(){return this.Q};function da(a){return G(a)+" "+(a.M+"00")+" 300px "+H(a.Q)}function H(a){var b=[];a=a.split(/,\s*/);for(var c=0;c<a.length;c++){var d=a[c].replace(/['"]/g,"");-1!=d.indexOf(" ")||/^\d/.test(d)?b.push("'"+d+"'"):b.push(d)}return b.join(",")}function I(a){return a.L+a.M}
-function G(a){var b="normal";"o"===a.L?b="oblique":"i"===a.L&&(b="italic");return b}function ea(a){var b=4,c="n",d=null;a&&((d=a.match(/(normal|oblique|italic)/i))&&d[1]&&(c=d[1].substr(0,1).toLowerCase()),(d=a.match(/([1-9]00|normal|bold)/i))&&d[1]&&(/bold/i.test(d[1])?b=7:/[1-9]00/.test(d[1])&&(b=parseInt(d[1].substr(0,1),10))));return c+b};function fa(a,b){this.a=a;this.j=a.k.document.documentElement;this.O=b;this.g="wf";this.e=new D("-");this.da=!1!==b.events;this.u=!1!==b.classes}function ga(a){a.u&&t(a.j,[a.e.d(a.g,"loading")]);J(a,"loading")}function K(a){if(a.u){var b=u(a.j,a.e.d(a.g,"active")),c=[],d=[a.e.d(a.g,"loading")];b||c.push(a.e.d(a.g,"inactive"));t(a.j,c,d)}J(a,"inactive")}function J(a,b,c){if(a.da&&a.O[b])if(c)a.O[b](c.getName(),I(c));else a.O[b]()};function ha(){this.t={}}function ia(a,b,c){var d=[],e;for(e in b)if(b.hasOwnProperty(e)){var f=a.t[e];f&&d.push(f(b[e],c))}return d};function L(a,b){this.a=a;this.h=b;this.m=this.a.createElement("span",{"aria-hidden":"true"},this.h)}function M(a,b){var c=a.m,d;d="display:block;position:absolute;top:-9999px;left:-9999px;font-size:300px;width:auto;height:auto;line-height:normal;margin:0;padding:0;font-variant:normal;white-space:nowrap;font-family:"+H(b.Q)+";"+("font-style:"+G(b)+";font-weight:"+(b.M+"00")+";");c.style.cssText=d}function N(a){s(a.a,"body",a.m)}L.prototype.remove=function(){var a=this.m;a.parentNode&&a.parentNode.removeChild(a)};function O(a,b,c,d,e,f){this.G=a;this.J=b;this.f=d;this.a=c;this.v=e||3E3;this.h=f||void 0}O.prototype.start=function(){var a=this.a.k.document,b=this;Promise.race([new Promise(function(a,d){setTimeout(function(){d(b.f)},b.v)}),a.fonts.load(da(this.f),this.h)]).then(function(a){1===a.length?b.G(b.f):b.J(b.f)},function(){b.J(b.f)})};function P(a,b,c,d,e,f,g){this.G=a;this.J=b;this.a=c;this.f=d;this.h=g||"BESbswy";this.s={};this.v=e||3E3;this.Z=f||null;this.D=this.C=this.A=this.w=null;this.w=new L(this.a,this.h);this.A=new L(this.a,this.h);this.C=new L(this.a,this.h);this.D=new L(this.a,this.h);M(this.w,new E(this.f.getName()+",serif",I(this.f)));M(this.A,new E(this.f.getName()+",sans-serif",I(this.f)));M(this.C,new E("serif",I(this.f)));M(this.D,new E("sans-serif",I(this.f)));N(this.w);N(this.A);N(this.C);N(this.D)}
-var Q={ia:"serif",ha:"sans-serif"},R=null;function S(){if(null===R){var a=/AppleWebKit\/([0-9]+)(?:\.([0-9]+))/.exec(window.navigator.userAgent);R=!!a&&(536>parseInt(a[1],10)||536===parseInt(a[1],10)&&11>=parseInt(a[2],10))}return R}P.prototype.start=function(){this.s.serif=this.C.m.offsetWidth;this.s["sans-serif"]=this.D.m.offsetWidth;this.ga=p();T(this)};function ja(a,b,c){for(var d in Q)if(Q.hasOwnProperty(d)&&b===a.s[Q[d]]&&c===a.s[Q[d]])return!0;return!1}
-function T(a){var b=a.w.m.offsetWidth,c=a.A.m.offsetWidth,d;(d=b===a.s.serif&&c===a.s["sans-serif"])||(d=S()&&ja(a,b,c));d?p()-a.ga>=a.v?S()&&ja(a,b,c)&&(null===a.Z||a.Z.hasOwnProperty(a.f.getName()))?U(a,a.G):U(a,a.J):ka(a):U(a,a.G)}function ka(a){setTimeout(n(function(){T(this)},a),50)}function U(a,b){setTimeout(n(function(){this.w.remove();this.A.remove();this.C.remove();this.D.remove();b(this.f)},a),0)};function V(a,b,c){this.a=a;this.p=b;this.P=0;this.ba=this.Y=!1;this.v=c}var la=!!window.FontFace;V.prototype.V=function(a){var b=this.p;b.u&&t(b.j,[b.e.d(b.g,a.getName(),I(a).toString(),"active")],[b.e.d(b.g,a.getName(),I(a).toString(),"loading"),b.e.d(b.g,a.getName(),I(a).toString(),"inactive")]);J(b,"fontactive",a);this.ba=!0;ma(this)};
-V.prototype.W=function(a){var b=this.p;if(b.u){var c=u(b.j,b.e.d(b.g,a.getName(),I(a).toString(),"active")),d=[],e=[b.e.d(b.g,a.getName(),I(a).toString(),"loading")];c||d.push(b.e.d(b.g,a.getName(),I(a).toString(),"inactive"));t(b.j,d,e)}J(b,"fontinactive",a);ma(this)};function ma(a){0==--a.P&&a.Y&&(a.ba?(a=a.p,a.u&&t(a.j,[a.e.d(a.g,"active")],[a.e.d(a.g,"loading"),a.e.d(a.g,"inactive")]),J(a,"active")):K(a.p))};function na(a){this.F=a;this.q=new ha;this.$=0;this.T=this.U=!0}na.prototype.load=function(a){this.a=new q(this.F,a.context||this.F);this.U=!1!==a.events;this.T=!1!==a.classes;oa(this,new fa(this.a,a),a)};
-function pa(a,b,c,d,e){var f=0==--a.$;(a.T||a.U)&&setTimeout(function(){var a=e||null,l=d||null||{};if(0===c.length&&f)K(b.p);else{b.P+=c.length;f&&(b.Y=f);var h,k=[];for(h=0;h<c.length;h++){var m=c[h],w=l[m.getName()],r=b.p,F=m;r.u&&t(r.j,[r.e.d(r.g,F.getName(),I(F).toString(),"loading")]);J(r,"fontloading",F);r=null;r=la?new O(n(b.V,b),n(b.W,b),b.a,m,b.v,w):new P(n(b.V,b),n(b.W,b),b.a,m,b.v,a,w);k.push(r)}for(h=0;h<k.length;h++)k[h].start()}},0)}
-function oa(a,b,c){var d=[],e=c.timeout;ga(b);var d=ia(a.q,c,a.a),f=new V(a.a,b,e);a.$=d.length;b=0;for(c=d.length;b<c;b++)d[b].load(function(b,c,d){pa(a,f,b,c,d)})};function qa(a,b,c){this.N=a?a:b+ra;this.o=[];this.R=[];this.ca=c||""}var ra="//fonts.googleapis.com/css";function sa(a,b){for(var c=b.length,d=0;d<c;d++){var e=b[d].split(":");3==e.length&&a.R.push(e.pop());var f="";2==e.length&&""!=e[1]&&(f=":");a.o.push(e.join(f))}}
-qa.prototype.d=function(){if(0==this.o.length)throw Error("No fonts to load!");if(-1!=this.N.indexOf("kit="))return this.N;for(var a=this.o.length,b=[],c=0;c<a;c++)b.push(this.o[c].replace(/ /g,"+"));a=this.N+"?family="+b.join("%7C");0<this.R.length&&(a+="&subset="+this.R.join(","));0<this.ca.length&&(a+="&text="+encodeURIComponent(this.ca));return a};function ta(a){this.o=a;this.aa=[];this.I={}}
-var ua={latin:"BESbswy",cyrillic:"&#1081;&#1103;&#1046;",greek:"&#945;&#946;&#931;",khmer:"&#x1780;&#x1781;&#x1782;",Hanuman:"&#x1780;&#x1781;&#x1782;"},va={thin:"1",extralight:"2","extra-light":"2",ultralight:"2","ultra-light":"2",light:"3",regular:"4",book:"4",medium:"5","semi-bold":"6",semibold:"6","demi-bold":"6",demibold:"6",bold:"7","extra-bold":"8",extrabold:"8","ultra-bold":"8",ultrabold:"8",black:"9",heavy:"9",l:"3",r:"4",b:"7"},wa={i:"i",italic:"i",n:"n",normal:"n"},xa=/^(thin|(?:(?:extra|ultra)-?)?light|regular|book|medium|(?:(?:semi|demi|extra|ultra)-?)?bold|black|heavy|l|r|b|[1-9]00)?(n|i|normal|italic)?$/;
-ta.prototype.parse=function(){for(var a=this.o.length,b=0;b<a;b++){var c=this.o[b].split(":"),d=c[0].replace(/\+/g," "),e=["n4"];if(2<=c.length){var f;var g=c[1];f=[];if(g)for(var g=g.split(","),l=g.length,h=0;h<l;h++){var k;k=g[h];if(k.match(/^[\w-]+$/))if(k=xa.exec(k.toLowerCase()),null==k)k="";else{var m;m=k[1];if(null==m||""==m)m="4";else{var w=va[m];m=w?w:isNaN(m)?"4":m.substr(0,1)}k=k[2];k=[null==k||""==k?"n":wa[k],m].join("")}else k="";k&&f.push(k)}0<f.length&&(e=f);3==c.length&&(c=c[2],f=
-[],c=c?c.split(","):f,0<c.length&&(c=ua[c[0]])&&(this.I[d]=c))}this.I[d]||(c=ua[d])&&(this.I[d]=c);for(c=0;c<e.length;c+=1)this.aa.push(new E(d,e[c]))}};function ya(a,b){this.a=a;this.c=b}var za={Arimo:!0,Cousine:!0,Tinos:!0};ya.prototype.load=function(a){var b=new z,c=this.a,d=new qa(this.c.api,v(c),this.c.text),e=this.c.families;sa(d,e);var f=new ta(e);f.parse();x(c,d.d(),A(b));C(b,function(){a(f.aa,f.I,za)})};function W(a,b){this.a=a;this.c=b;this.X=[]}W.prototype.B=function(a){var b=this.a;return v(this.a)+(this.c.api||"//f.fontdeck.com/s/css/js/")+(b.k.location.hostname||b.F.location.hostname)+"/"+a+".js"};
-W.prototype.load=function(a){var b=this.c.id,c=this.a.k,d=this;b?(c.__webfontfontdeckmodule__||(c.__webfontfontdeckmodule__={}),c.__webfontfontdeckmodule__[b]=function(b,c){for(var g=0,l=c.fonts.length;g<l;++g){var h=c.fonts[g];d.X.push(new E(h.name,ea("font-weight:"+h.weight+";font-style:"+h.style)))}a(d.X)},y(this.a,this.B(b),function(b){b&&a([])})):a([])};function X(a,b){this.a=a;this.c=b}X.prototype.B=function(a){return(this.c.api||"https://use.typekit.net")+"/"+a+".js"};X.prototype.load=function(a){var b=this.c.id,c=this.a.k;b?y(this.a,this.B(b),function(b){if(b)a([]);else if(c.Typekit&&c.Typekit.config&&c.Typekit.config.fn){b=c.Typekit.config.fn;for(var e=[],f=0;f<b.length;f+=2)for(var g=b[f],l=b[f+1],h=0;h<l.length;h++)e.push(new E(g,l[h]));try{c.Typekit.load({events:!1,classes:!1,async:!0})}catch(k){}a(e)}},2E3):a([])};function Y(a,b){this.a=a;this.c=b}Y.prototype.B=function(a,b){var c=v(this.a),d=(this.c.api||"fast.fonts.net/jsapi").replace(/^.*http(s?):(\/\/)?/,"");return c+"//"+d+"/"+a+".js"+(b?"?v="+b:"")};
-Y.prototype.load=function(a){function b(){if(e["__mti_fntLst"+c]){var d=e["__mti_fntLst"+c](),g=[],l;if(d)for(var h=0;h<d.length;h++){var k=d[h].fontfamily;void 0!=d[h].fontStyle&&void 0!=d[h].fontWeight?(l=d[h].fontStyle+d[h].fontWeight,g.push(new E(k,l))):g.push(new E(k))}a(g)}else setTimeout(function(){b()},50)}var c=this.c.projectId,d=this.c.version;if(c){var e=this.a.k;y(this.a,this.B(c,d),function(c){c?a([]):b()}).id="__MonotypeAPIScript__"+c}else a([])};function Aa(a,b){this.a=a;this.c=b}Aa.prototype.load=function(a){var b,c,d=this.c.urls||[],e=this.c.families||[],f=this.c.testStrings||{},g=new z;b=0;for(c=d.length;b<c;b++)x(this.a,d[b],A(g));var l=[];b=0;for(c=e.length;b<c;b++)if(d=e[b].split(":"),d[1])for(var h=d[1].split(","),k=0;k<h.length;k+=1)l.push(new E(d[0],h[k]));else l.push(new E(d[0]));C(g,function(){a(l,f)})};var Z=new na(window);Z.q.t.custom=function(a,b){return new Aa(b,a)};Z.q.t.fontdeck=function(a,b){return new W(b,a)};Z.q.t.monotype=function(a,b){return new Y(b,a)};Z.q.t.typekit=function(a,b){return new X(b,a)};Z.q.t.google=function(a,b){return new ya(b,a)};var $={load:n(Z.load,Z)};"function"===typeof define&&define.amd?define(function(){return $}):"undefined"!==typeof module&&module.exports?module.exports=$:(window.WebFont=$,window.WebFontConfig&&Z.load(window.WebFontConfig));}());
-
+},{}],37:[function(require,module,exports){
+/* Web Font Loader v1.6.26 - (c) Adobe Systems, Google. License: Apache 2.0 */(function(){function aa(a,b,c){return a.call.apply(a.bind,arguments)}function ba(a,b,c){if(!a)throw Error();if(2<arguments.length){var d=Array.prototype.slice.call(arguments,2);return function(){var c=Array.prototype.slice.call(arguments);Array.prototype.unshift.apply(c,d);return a.apply(b,c)}}return function(){return a.apply(b,arguments)}}function p(a,b,c){p=Function.prototype.bind&&-1!=Function.prototype.bind.toString().indexOf("native code")?aa:ba;return p.apply(null,arguments)}var q=Date.now||function(){return+new Date};function ca(a,b){this.a=a;this.m=b||a;this.c=this.m.document}var da=!!window.FontFace;function t(a,b,c,d){b=a.c.createElement(b);if(c)for(var e in c)c.hasOwnProperty(e)&&("style"==e?b.style.cssText=c[e]:b.setAttribute(e,c[e]));d&&b.appendChild(a.c.createTextNode(d));return b}function u(a,b,c){a=a.c.getElementsByTagName(b)[0];a||(a=document.documentElement);a.insertBefore(c,a.lastChild)}function v(a){a.parentNode&&a.parentNode.removeChild(a)}
+function w(a,b,c){b=b||[];c=c||[];for(var d=a.className.split(/\s+/),e=0;e<b.length;e+=1){for(var f=!1,g=0;g<d.length;g+=1)if(b[e]===d[g]){f=!0;break}f||d.push(b[e])}b=[];for(e=0;e<d.length;e+=1){f=!1;for(g=0;g<c.length;g+=1)if(d[e]===c[g]){f=!0;break}f||b.push(d[e])}a.className=b.join(" ").replace(/\s+/g," ").replace(/^\s+|\s+$/,"")}function y(a,b){for(var c=a.className.split(/\s+/),d=0,e=c.length;d<e;d++)if(c[d]==b)return!0;return!1}
+function z(a){if("string"===typeof a.f)return a.f;var b=a.m.location.protocol;"about:"==b&&(b=a.a.location.protocol);return"https:"==b?"https:":"http:"}function ea(a){return a.m.location.hostname||a.a.location.hostname}
+function A(a,b,c){function d(){k&&e&&f&&(k(g),k=null)}b=t(a,"link",{rel:"stylesheet",href:b,media:"all"});var e=!1,f=!0,g=null,k=c||null;da?(b.onload=function(){e=!0;d()},b.onerror=function(){e=!0;g=Error("Stylesheet failed to load");d()}):setTimeout(function(){e=!0;d()},0);u(a,"head",b)}
+function B(a,b,c,d){var e=a.c.getElementsByTagName("head")[0];if(e){var f=t(a,"script",{src:b}),g=!1;f.onload=f.onreadystatechange=function(){g||this.readyState&&"loaded"!=this.readyState&&"complete"!=this.readyState||(g=!0,c&&c(null),f.onload=f.onreadystatechange=null,"HEAD"==f.parentNode.tagName&&e.removeChild(f))};e.appendChild(f);setTimeout(function(){g||(g=!0,c&&c(Error("Script load timeout")))},d||5E3);return f}return null};function C(){this.a=0;this.c=null}function D(a){a.a++;return function(){a.a--;E(a)}}function F(a,b){a.c=b;E(a)}function E(a){0==a.a&&a.c&&(a.c(),a.c=null)};function G(a){this.a=a||"-"}G.prototype.c=function(a){for(var b=[],c=0;c<arguments.length;c++)b.push(arguments[c].replace(/[\W_]+/g,"").toLowerCase());return b.join(this.a)};function H(a,b){this.c=a;this.f=4;this.a="n";var c=(b||"n4").match(/^([nio])([1-9])$/i);c&&(this.a=c[1],this.f=parseInt(c[2],10))}function fa(a){return I(a)+" "+(a.f+"00")+" 300px "+J(a.c)}function J(a){var b=[];a=a.split(/,\s*/);for(var c=0;c<a.length;c++){var d=a[c].replace(/['"]/g,"");-1!=d.indexOf(" ")||/^\d/.test(d)?b.push("'"+d+"'"):b.push(d)}return b.join(",")}function K(a){return a.a+a.f}function I(a){var b="normal";"o"===a.a?b="oblique":"i"===a.a&&(b="italic");return b}
+function ga(a){var b=4,c="n",d=null;a&&((d=a.match(/(normal|oblique|italic)/i))&&d[1]&&(c=d[1].substr(0,1).toLowerCase()),(d=a.match(/([1-9]00|normal|bold)/i))&&d[1]&&(/bold/i.test(d[1])?b=7:/[1-9]00/.test(d[1])&&(b=parseInt(d[1].substr(0,1),10))));return c+b};function ha(a,b){this.c=a;this.f=a.m.document.documentElement;this.h=b;this.a=new G("-");this.j=!1!==b.events;this.g=!1!==b.classes}function ia(a){a.g&&w(a.f,[a.a.c("wf","loading")]);L(a,"loading")}function M(a){if(a.g){var b=y(a.f,a.a.c("wf","active")),c=[],d=[a.a.c("wf","loading")];b||c.push(a.a.c("wf","inactive"));w(a.f,c,d)}L(a,"inactive")}function L(a,b,c){if(a.j&&a.h[b])if(c)a.h[b](c.c,K(c));else a.h[b]()};function ja(){this.c={}}function ka(a,b,c){var d=[],e;for(e in b)if(b.hasOwnProperty(e)){var f=a.c[e];f&&d.push(f(b[e],c))}return d};function N(a,b){this.c=a;this.f=b;this.a=t(this.c,"span",{"aria-hidden":"true"},this.f)}function O(a){u(a.c,"body",a.a)}function P(a){return"display:block;position:absolute;top:-9999px;left:-9999px;font-size:300px;width:auto;height:auto;line-height:normal;margin:0;padding:0;font-variant:normal;white-space:nowrap;font-family:"+J(a.c)+";"+("font-style:"+I(a)+";font-weight:"+(a.f+"00")+";")};function Q(a,b,c,d,e,f){this.g=a;this.j=b;this.a=d;this.c=c;this.f=e||3E3;this.h=f||void 0}Q.prototype.start=function(){var a=this.c.m.document,b=this,c=q(),d=new Promise(function(d,e){function k(){q()-c>=b.f?e():a.fonts.load(fa(b.a),b.h).then(function(a){1<=a.length?d():setTimeout(k,25)},function(){e()})}k()}),e=new Promise(function(a,d){setTimeout(d,b.f)});Promise.race([e,d]).then(function(){b.g(b.a)},function(){b.j(b.a)})};function R(a,b,c,d,e,f,g){this.v=a;this.B=b;this.c=c;this.a=d;this.s=g||"BESbswy";this.f={};this.w=e||3E3;this.u=f||null;this.o=this.j=this.h=this.g=null;this.g=new N(this.c,this.s);this.h=new N(this.c,this.s);this.j=new N(this.c,this.s);this.o=new N(this.c,this.s);a=new H(this.a.c+",serif",K(this.a));a=P(a);this.g.a.style.cssText=a;a=new H(this.a.c+",sans-serif",K(this.a));a=P(a);this.h.a.style.cssText=a;a=new H("serif",K(this.a));a=P(a);this.j.a.style.cssText=a;a=new H("sans-serif",K(this.a));a=
+P(a);this.o.a.style.cssText=a;O(this.g);O(this.h);O(this.j);O(this.o)}var S={D:"serif",C:"sans-serif"},T=null;function U(){if(null===T){var a=/AppleWebKit\/([0-9]+)(?:\.([0-9]+))/.exec(window.navigator.userAgent);T=!!a&&(536>parseInt(a[1],10)||536===parseInt(a[1],10)&&11>=parseInt(a[2],10))}return T}R.prototype.start=function(){this.f.serif=this.j.a.offsetWidth;this.f["sans-serif"]=this.o.a.offsetWidth;this.A=q();la(this)};
+function ma(a,b,c){for(var d in S)if(S.hasOwnProperty(d)&&b===a.f[S[d]]&&c===a.f[S[d]])return!0;return!1}function la(a){var b=a.g.a.offsetWidth,c=a.h.a.offsetWidth,d;(d=b===a.f.serif&&c===a.f["sans-serif"])||(d=U()&&ma(a,b,c));d?q()-a.A>=a.w?U()&&ma(a,b,c)&&(null===a.u||a.u.hasOwnProperty(a.a.c))?V(a,a.v):V(a,a.B):na(a):V(a,a.v)}function na(a){setTimeout(p(function(){la(this)},a),50)}function V(a,b){setTimeout(p(function(){v(this.g.a);v(this.h.a);v(this.j.a);v(this.o.a);b(this.a)},a),0)};function W(a,b,c){this.c=a;this.a=b;this.f=0;this.o=this.j=!1;this.s=c}var X=null;W.prototype.g=function(a){var b=this.a;b.g&&w(b.f,[b.a.c("wf",a.c,K(a).toString(),"active")],[b.a.c("wf",a.c,K(a).toString(),"loading"),b.a.c("wf",a.c,K(a).toString(),"inactive")]);L(b,"fontactive",a);this.o=!0;oa(this)};
+W.prototype.h=function(a){var b=this.a;if(b.g){var c=y(b.f,b.a.c("wf",a.c,K(a).toString(),"active")),d=[],e=[b.a.c("wf",a.c,K(a).toString(),"loading")];c||d.push(b.a.c("wf",a.c,K(a).toString(),"inactive"));w(b.f,d,e)}L(b,"fontinactive",a);oa(this)};function oa(a){0==--a.f&&a.j&&(a.o?(a=a.a,a.g&&w(a.f,[a.a.c("wf","active")],[a.a.c("wf","loading"),a.a.c("wf","inactive")]),L(a,"active")):M(a.a))};function pa(a){this.j=a;this.a=new ja;this.h=0;this.f=this.g=!0}pa.prototype.load=function(a){this.c=new ca(this.j,a.context||this.j);this.g=!1!==a.events;this.f=!1!==a.classes;qa(this,new ha(this.c,a),a)};
+function ra(a,b,c,d,e){var f=0==--a.h;(a.f||a.g)&&setTimeout(function(){var a=e||null,k=d||null||{};if(0===c.length&&f)M(b.a);else{b.f+=c.length;f&&(b.j=f);var h,m=[];for(h=0;h<c.length;h++){var l=c[h],n=k[l.c],r=b.a,x=l;r.g&&w(r.f,[r.a.c("wf",x.c,K(x).toString(),"loading")]);L(r,"fontloading",x);r=null;null===X&&(X=window.FontFace?(x=/Gecko.*Firefox\/(\d+)/.exec(window.navigator.userAgent))?42<parseInt(x[1],10):!0:!1);X?r=new Q(p(b.g,b),p(b.h,b),b.c,l,b.s,n):r=new R(p(b.g,b),p(b.h,b),b.c,l,b.s,a,
+n);m.push(r)}for(h=0;h<m.length;h++)m[h].start()}},0)}function qa(a,b,c){var d=[],e=c.timeout;ia(b);var d=ka(a.a,c,a.c),f=new W(a.c,b,e);a.h=d.length;b=0;for(c=d.length;b<c;b++)d[b].load(function(b,d,c){ra(a,f,b,d,c)})};function sa(a,b){this.c=a;this.a=b}function ta(a,b,c){var d=z(a.c);a=(a.a.api||"fast.fonts.net/jsapi").replace(/^.*http(s?):(\/\/)?/,"");return d+"//"+a+"/"+b+".js"+(c?"?v="+c:"")}
+sa.prototype.load=function(a){function b(){if(f["__mti_fntLst"+d]){var c=f["__mti_fntLst"+d](),e=[],h;if(c)for(var m=0;m<c.length;m++){var l=c[m].fontfamily;void 0!=c[m].fontStyle&&void 0!=c[m].fontWeight?(h=c[m].fontStyle+c[m].fontWeight,e.push(new H(l,h))):e.push(new H(l))}a(e)}else setTimeout(function(){b()},50)}var c=this,d=c.a.projectId,e=c.a.version;if(d){var f=c.c.m;B(this.c,ta(c,d,e),function(e){e?a([]):(f["__MonotypeConfiguration__"+d]=function(){return c.a},b())}).id="__MonotypeAPIScript__"+
+d}else a([])};function ua(a,b){this.c=a;this.a=b}ua.prototype.load=function(a){var b,c,d=this.a.urls||[],e=this.a.families||[],f=this.a.testStrings||{},g=new C;b=0;for(c=d.length;b<c;b++)A(this.c,d[b],D(g));var k=[];b=0;for(c=e.length;b<c;b++)if(d=e[b].split(":"),d[1])for(var h=d[1].split(","),m=0;m<h.length;m+=1)k.push(new H(d[0],h[m]));else k.push(new H(d[0]));F(g,function(){a(k,f)})};function va(a,b,c){a?this.c=a:this.c=b+wa;this.a=[];this.f=[];this.g=c||""}var wa="//fonts.googleapis.com/css";function xa(a,b){for(var c=b.length,d=0;d<c;d++){var e=b[d].split(":");3==e.length&&a.f.push(e.pop());var f="";2==e.length&&""!=e[1]&&(f=":");a.a.push(e.join(f))}}
+function ya(a){if(0==a.a.length)throw Error("No fonts to load!");if(-1!=a.c.indexOf("kit="))return a.c;for(var b=a.a.length,c=[],d=0;d<b;d++)c.push(a.a[d].replace(/ /g,"+"));b=a.c+"?family="+c.join("%7C");0<a.f.length&&(b+="&subset="+a.f.join(","));0<a.g.length&&(b+="&text="+encodeURIComponent(a.g));return b};function za(a){this.f=a;this.a=[];this.c={}}
+var Aa={latin:"BESbswy","latin-ext":"\u00e7\u00f6\u00fc\u011f\u015f",cyrillic:"\u0439\u044f\u0416",greek:"\u03b1\u03b2\u03a3",khmer:"\u1780\u1781\u1782",Hanuman:"\u1780\u1781\u1782"},Ba={thin:"1",extralight:"2","extra-light":"2",ultralight:"2","ultra-light":"2",light:"3",regular:"4",book:"4",medium:"5","semi-bold":"6",semibold:"6","demi-bold":"6",demibold:"6",bold:"7","extra-bold":"8",extrabold:"8","ultra-bold":"8",ultrabold:"8",black:"9",heavy:"9",l:"3",r:"4",b:"7"},Ca={i:"i",italic:"i",n:"n",normal:"n"},
+Da=/^(thin|(?:(?:extra|ultra)-?)?light|regular|book|medium|(?:(?:semi|demi|extra|ultra)-?)?bold|black|heavy|l|r|b|[1-9]00)?(n|i|normal|italic)?$/;
+function Ea(a){for(var b=a.f.length,c=0;c<b;c++){var d=a.f[c].split(":"),e=d[0].replace(/\+/g," "),f=["n4"];if(2<=d.length){var g;var k=d[1];g=[];if(k)for(var k=k.split(","),h=k.length,m=0;m<h;m++){var l;l=k[m];if(l.match(/^[\w-]+$/)){var n=Da.exec(l.toLowerCase());if(null==n)l="";else{l=n[2];l=null==l||""==l?"n":Ca[l];n=n[1];if(null==n||""==n)n="4";else var r=Ba[n],n=r?r:isNaN(n)?"4":n.substr(0,1);l=[l,n].join("")}}else l="";l&&g.push(l)}0<g.length&&(f=g);3==d.length&&(d=d[2],g=[],d=d?d.split(","):
+g,0<d.length&&(d=Aa[d[0]])&&(a.c[e]=d))}a.c[e]||(d=Aa[e])&&(a.c[e]=d);for(d=0;d<f.length;d+=1)a.a.push(new H(e,f[d]))}};function Fa(a,b){this.c=a;this.a=b}var Ga={Arimo:!0,Cousine:!0,Tinos:!0};Fa.prototype.load=function(a){var b=new C,c=this.c,d=new va(this.a.api,z(c),this.a.text),e=this.a.families;xa(d,e);var f=new za(e);Ea(f);A(c,ya(d),D(b));F(b,function(){a(f.a,f.c,Ga)})};function Ha(a,b){this.c=a;this.a=b}Ha.prototype.load=function(a){var b=this.a.id,c=this.c.m;b?B(this.c,(this.a.api||"https://use.typekit.net")+"/"+b+".js",function(b){if(b)a([]);else if(c.Typekit&&c.Typekit.config&&c.Typekit.config.fn){b=c.Typekit.config.fn;for(var e=[],f=0;f<b.length;f+=2)for(var g=b[f],k=b[f+1],h=0;h<k.length;h++)e.push(new H(g,k[h]));try{c.Typekit.load({events:!1,classes:!1,async:!0})}catch(m){}a(e)}},2E3):a([])};function Ia(a,b){this.c=a;this.f=b;this.a=[]}Ia.prototype.load=function(a){var b=this.f.id,c=this.c.m,d=this;b?(c.__webfontfontdeckmodule__||(c.__webfontfontdeckmodule__={}),c.__webfontfontdeckmodule__[b]=function(b,c){for(var g=0,k=c.fonts.length;g<k;++g){var h=c.fonts[g];d.a.push(new H(h.name,ga("font-weight:"+h.weight+";font-style:"+h.style)))}a(d.a)},B(this.c,z(this.c)+(this.f.api||"//f.fontdeck.com/s/css/js/")+ea(this.c)+"/"+b+".js",function(b){b&&a([])})):a([])};var Y=new pa(window);Y.a.c.custom=function(a,b){return new ua(b,a)};Y.a.c.fontdeck=function(a,b){return new Ia(b,a)};Y.a.c.monotype=function(a,b){return new sa(b,a)};Y.a.c.typekit=function(a,b){return new Ha(b,a)};Y.a.c.google=function(a,b){return new Fa(b,a)};var Z={load:p(Y.load,Y)};"function"===typeof define&&define.amd?define(function(){return Z}):"undefined"!==typeof module&&module.exports?module.exports=Z:(window.WebFont=Z,window.WebFontConfig&&Y.load(window.WebFontConfig));}());
 
 },{}]},{},[1]);
