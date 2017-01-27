@@ -1,0 +1,71 @@
+<html>
+	<head>
+		<script src="../dist/mt.js"></script>
+			<script src="js/Tone9.js"></script>
+		<link href="https://fonts.googleapis.com/css?family=Muli" rel="stylesheet">
+	</head>
+	<body onload="init()">
+
+
+		<div class="center-block" style="border:solid 0px">
+			<h1>Musician's Toolkit</h1>
+			<div>Interfaces, Tuning, Timing</div><br>
+		</div>
+
+		<div class="center-block" style="margin-top:50px">
+			<div id="synth1volume" mt="slider"></div>
+		</div>
+
+		<code class="center-block">
+			HTML
+		</code>
+
+		<code class="center-block">
+			JS
+		</code>
+
+	</body>
+	<script>
+
+
+		var synth = new Tone.PolySynth(6, Tone.FMSynth).toMaster()
+		synth.set("volume", -20)
+
+
+		function init() {
+			mt.init()
+		}
+
+		mt.onload = function() {
+
+			mt.colorize("#b26")
+
+			beat = mt.time.pulse(1000,function() {
+
+				var root = mt.pick(0,3,4)
+				synth.triggerAttackRelease( [ mt.tune.note( root, mt.ri(-2,0) ), mt.tune.note( root+4, mt.ri(-2,0) ), mt.tune.note( root+2, mt.ri(-2,0) ) ] , "16n")
+
+			},true)
+
+			// beat.pattern = [0,1,1]
+
+			mt.ui.synth1volume.event(function(v) {
+				beat.ms( mt.scale(v,0,1,100,500) )
+			})
+
+		}
+
+		</script>
+		<style>
+			body{
+				font-family:'Muli', helvetica;
+			}
+			.center-block {
+				width:700px;
+				border:solid 1px #bbb;
+				margin:5px auto;
+				padding:10px;
+				display:block;
+			}
+		</style>
+</html>

@@ -5,6 +5,7 @@ var mathUtils = require('./lib/utils/math');
 var extend = require('extend');
 var WebFont = require('webfontloader');
 var Tune = require('./lib/core/tuning')
+var Time = require('./lib/core/timing')
 
 /************************************************
 *  INSTANTIATE mt MANAGER AND CREATE ELEMENTS   *
@@ -18,6 +19,7 @@ window.mt = extend(window.mt,mathUtils)
 window.mt = extend(window.mt, require('./lib/core/interval') )
 window.mt = extend(window.mt, require('./lib/core/control') )
 window.mt.tune = new Tune()
+window.mt.time = new Time()
 
 // change something.
 

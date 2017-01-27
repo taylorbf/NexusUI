@@ -6,6 +6,7 @@ var mathUtils = require('./lib/utils/math');
 var extend = require('extend');
 var WebFont = require('webfontloader');
 var Tune = require('./lib/core/tuning')
+var Time = require('./lib/core/timing')
 
 /************************************************
 *  INSTANTIATE mt MANAGER AND CREATE ELEMENTS   *
@@ -19,6 +20,7 @@ window.mt = extend(window.mt,mathUtils)
 window.mt = extend(window.mt, require('./lib/core/interval') )
 window.mt = extend(window.mt, require('./lib/core/control') )
 window.mt.tune = new Tune()
+window.mt.time = new Time()
 
 // change something.
 
@@ -51,7 +53,7 @@ mt.init = function() {
 
 };
 
-},{"./lib/core/control":2,"./lib/core/interval":3,"./lib/core/manager":4,"./lib/core/tuning":6,"./lib/utils/dom":12,"./lib/utils/drawing":13,"./lib/utils/math":14,"extend":43,"webfontloader":44}],2:[function(require,module,exports){
+},{"./lib/core/control":2,"./lib/core/interval":3,"./lib/core/manager":4,"./lib/core/timing":6,"./lib/core/tuning":7,"./lib/utils/dom":13,"./lib/utils/drawing":14,"./lib/utils/math":15,"extend":44,"webfontloader":47}],2:[function(require,module,exports){
 
 /*  @method  clip
     @description Limits a number to within low and high values.
@@ -206,9 +208,6 @@ mt.rf = function(bound1,bound2) {
 /** @method cycle
     @description Count a number upwards until it reaches a maximum, then send it back to a minimum value.<br>
     I.e. cycle(x,0,5) will output 0,1,2,3,4,5,0,1,2... if called many times in succession
-    @param {float} [min] Lower limit of random range.
-    @param {float} [min] Lower limit of random range.
-    @param {float} [max] Upper limit of random range.
 */
 mt.cycle = function(input,min,max) {
   input++;
@@ -218,7 +217,10 @@ mt.cycle = function(input,min,max) {
   return input;
 }
 
+/* Add mt.counter() returns new object... */
+
 },{}],3:[function(require,module,exports){
+
 
 var VariableSpeedInterval = function(rate,func) {
 	this.rate = rate
@@ -297,7 +299,6 @@ exports.interval = function(rate,func) {
 */
 
 },{}],4:[function(require,module,exports){
-
 /**
   @title NexusUI API
   @overview NexusUI is a JavaScript toolkit for easily creating musical interfaces in web browsers. Interfaces are rendered on HTML5 canvases and are ideal for web audio projects, mobile apps, or for sending OSC to external audio applications like Max.
@@ -306,12 +307,10 @@ exports.interval = function(rate,func) {
   @license MIT
  */
 
-
 var timingUtils = require('../utils/timing');
 var drawingUtils = require('../utils/drawing');
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
-//var WAAClock = require('waaclock');
 
 
 var manager = module.exports = function() {
@@ -806,7 +805,7 @@ manager.prototype.module = function(params) {
 
 }
 
-},{"../modules":9,"../utils/drawing":13,"../utils/timing":15,"../widgets":20,"events":38,"util":42}],5:[function(require,module,exports){
+},{"../modules":10,"../utils/drawing":14,"../utils/timing":16,"../widgets":21,"events":39,"util":43}],5:[function(require,module,exports){
 
 var Module = module.exports = function(target) {
 
@@ -831,6 +830,63 @@ Module.prototype.map = function(vin,vout,scale) {
 }
 
 },{}],6:[function(require,module,exports){
+var WAAClock = require('waaclock');
+
+var Time = module.exports = function() {
+
+    this.clock = new WAAClock(mt.context)
+    this.clock.start()
+
+    this.pulse = function(rate,func,on) {
+        return new VariableSpeedInterval(rate,func,on)
+    }
+
+}
+
+var VariableSpeedInterval = function(rate,func,on) {
+
+  this.rate = rate
+  this.on = on;
+
+  this.pattern = [1]
+  this.index = 0
+
+  this.event = func ? func : function() { };
+  this._event = function() {
+    if (this.pattern[this.index%this.pattern.length]) {
+      this.event()
+    }
+    this.index++
+  }
+  this.stop = function() {
+    this.on = false;
+    this.interval.clear()
+  }
+  this.start = function() {
+    this.on = true;
+    this.interval = mt.time.clock.callbackAtTime(this._event.bind(this), mt.context.currentTime).repeat(this.rate/1000)
+  }
+  this.ms = function(newrate) {
+    if (this.on) {
+      var ratio = newrate/this.rate
+      this.rate = newrate
+      mt.time.clock.timeStretch(mt.context.currentTime, [this.interval], ratio)
+    } else {
+      this.rate = newrate
+    }
+  }
+
+  if (this.on) {
+    this.start()
+  }
+}
+
+Time.prototype.interval = function() {
+  var _int = new VariableSpeedInterval(rate,func)
+	return _int;
+}
+
+},{"waaclock":45}],7:[function(require,module,exports){
 var Tune = module.exports = function() {
 
   	// the scale as ratios
@@ -1097,7 +1153,7 @@ Tune.prototype.TuningList = {
   }
 }
 
-},{}],7:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
 var domUtils = require('../utils/dom');
@@ -1582,7 +1638,7 @@ widget.prototype.rangify = function(value) {
   return mt.scale(value,0,1,this.min,this.max)
 }
 
-},{"../utils/dom":12,"../utils/drawing":13,"../utils/timing":15,"events":38,"util":42}],8:[function(require,module,exports){
+},{"../utils/dom":13,"../utils/drawing":14,"../utils/timing":16,"events":39,"util":43}],9:[function(require,module,exports){
 var util = require('util');
 var component = require('../core/module');
 
@@ -1616,14 +1672,14 @@ Dial.prototype.init = function() {
   }.bind(this))
 }
 
-},{"../core/module":5,"util":42}],9:[function(require,module,exports){
+},{"../core/module":5,"util":43}],10:[function(require,module,exports){
 module.exports = {
   slider: require("./slider.js"),
   metronome: require("./metro.js"),
   dial: require("./dial.js")
 }
 
-},{"./dial.js":8,"./metro.js":10,"./slider.js":11}],10:[function(require,module,exports){
+},{"./dial.js":9,"./metro.js":11,"./slider.js":12}],11:[function(require,module,exports){
 var util = require('util');
 var component = require('../core/module');
 
@@ -1677,7 +1733,7 @@ Metronome.prototype.ms = function(ms) {
   this.interval.ms(ms)
 }
 
-},{"../core/module":5,"util":42}],11:[function(require,module,exports){
+},{"../core/module":5,"util":43}],12:[function(require,module,exports){
 var util = require('util');
 var component = require('../core/module');
 
@@ -1724,7 +1780,7 @@ Slider.prototype.map = function(vin,vout,scale) {
 }
 */
 
-},{"../core/module":5,"util":42}],12:[function(require,module,exports){
+},{"../core/module":5,"util":43}],13:[function(require,module,exports){
 
 /** @class utils 
   Shared utility functions. These functions are exposed as methods of nx in NexusUI projects, i.e. .mtof() here can be accessed in your project with nx.mtof().
@@ -1800,7 +1856,7 @@ exports.getTouchPosition = function(e, canvas_offset) {
   }
   return click_position;
 }
-},{}],13:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 var math = require('./math')
 
 /** @method randomColor
@@ -1895,7 +1951,7 @@ exports.shadeBlendConvert = function(p, from, to) {
     if(h)return "rgb("+r((t[0]-f[0])*p+f[0])+","+r((t[1]-f[1])*p+f[1])+","+r((t[2]-f[2])*p+f[2])+(f[3]<0&&t[3]<0?")":","+(f[3]>-1&&t[3]>-1?r(((t[3]-f[3])*p+f[3])*10000)/10000:t[3]<0?f[3]:t[3])+")");
     else return "#"+(0x100000000+(f[3]>-1&&t[3]>-1?r(((t[3]-f[3])*p+f[3])*255):t[3]>-1?r(t[3]*255):f[3]>-1?r(f[3]*255):255)*0x1000000+r((t[0]-f[0])*p+f[0])*0x10000+r((t[1]-f[1])*p+f[1])*0x100+r((t[2]-f[2])*p+f[2])).toString(16).slice(f[3]>-1||t[3]>-1?1:3);
 }
-},{"./math":14}],14:[function(require,module,exports){
+},{"./math":15}],15:[function(require,module,exports){
 
 
 /** @method toPolar
@@ -2089,7 +2145,7 @@ exports.lp3 = function(value,pvalue,limit) {
   return newvalue;
 }
 
-},{}],15:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 
 
 exports.throttle = function(func, wait) {
@@ -2111,7 +2167,7 @@ exports.throttle = function(func, wait) {
     }
   }
 }
-},{}],16:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 var util = require('util');
 var widget = require('../core/widget');
 var drawing = require('../utils/drawing');
@@ -2329,7 +2385,7 @@ button.prototype.setTouchImage = function(image) {
 	this.imageTouch.src = image;
 }
 
-},{"../core/widget":7,"../utils/drawing":13,"util":42}],17:[function(require,module,exports){
+},{"../core/widget":8,"../utils/drawing":14,"util":43}],18:[function(require,module,exports){
 var math = require('../utils/math')
 var util = require('util');
 var widget = require('../core/widget');
@@ -2417,7 +2473,7 @@ crossfade.prototype.move = function() {
 	this.draw();
 	this.transmit(this.val);
 }
-},{"../core/widget":7,"../utils/math":14,"util":42}],18:[function(require,module,exports){
+},{"../core/widget":8,"../utils/math":15,"util":43}],19:[function(require,module,exports){
 var math = require('../utils/math');
 var util = require('util');
 var widget = require('../core/widget');
@@ -2639,7 +2695,7 @@ dial.prototype.move = function() {
 dial.prototype.release = function() {
 }
 
-},{"../core/widget":7,"../utils/math":14,"util":42}],19:[function(require,module,exports){
+},{"../core/widget":8,"../utils/math":15,"util":43}],20:[function(require,module,exports){
 var startTime = 0;
 
 var math = require('../utils/math')
@@ -2945,7 +3001,7 @@ envelope.prototype.findNearestNode = function(x, y, nodes) {
 
 	return nearestIndex;
 }
-},{"../core/widget":7,"../utils/math":14,"util":42}],20:[function(require,module,exports){
+},{"../core/widget":8,"../utils/math":15,"util":43}],21:[function(require,module,exports){
 module.exports = {
   button: require('./button'),
   crossfade: require('./crossfade'),
@@ -2970,7 +3026,7 @@ module.exports = {
   waveform: require('./waveform')
 }
 
-},{"./button":16,"./crossfade":17,"./dial":18,"./envelope":19,"./keyboard":21,"./matrix":22,"./message":23,"./meter":24,"./metro":25,"./multislider":26,"./multitouch":27,"./number":28,"./position":29,"./range":30,"./select":31,"./slider":32,"./tabs":33,"./tilt":34,"./toggle":35,"./typewriter":36,"./waveform":37}],21:[function(require,module,exports){
+},{"./button":17,"./crossfade":18,"./dial":19,"./envelope":20,"./keyboard":22,"./matrix":23,"./message":24,"./meter":25,"./metro":26,"./multislider":27,"./multitouch":28,"./number":29,"./position":30,"./range":31,"./select":32,"./slider":33,"./tabs":34,"./tilt":35,"./toggle":36,"./typewriter":37,"./waveform":38}],22:[function(require,module,exports){
 var util = require('util');
 var widget = require('../core/widget');
 var drawing = require('../utils/drawing');
@@ -3305,7 +3361,7 @@ keyboard.prototype.release = function(e) {
 
 
 
-},{"../core/widget":7,"../utils/drawing":13,"../utils/math":14,"util":42}],22:[function(require,module,exports){
+},{"../core/widget":8,"../utils/drawing":14,"../utils/math":15,"util":43}],23:[function(require,module,exports){
 var math = require('../utils/math');
 var drawing = require('../utils/drawing');
 var util = require('util');
@@ -3755,7 +3811,7 @@ matrix.prototype.life = function() {
   return false;
 }
 
-},{"../core/widget":7,"../utils/drawing":13,"../utils/math":14,"util":42}],23:[function(require,module,exports){
+},{"../core/widget":8,"../utils/drawing":14,"../utils/math":15,"util":43}],24:[function(require,module,exports){
 var util = require('util');
 var widget = require('../core/widget');
 
@@ -3827,7 +3883,7 @@ message.prototype.click = function(e) {
 message.prototype.release = function(e) {
 	this.draw();
 }
-},{"../core/widget":7,"util":42}],24:[function(require,module,exports){
+},{"../core/widget":8,"util":43}],25:[function(require,module,exports){
 var util = require('util');
 var drawing = require('../utils/drawing');
 var widget = require('../core/widget');
@@ -3950,7 +4006,7 @@ meter.prototype.draw = function(){
 }
     
     
-},{"../core/widget":7,"../utils/drawing":13,"util":42}],25:[function(require,module,exports){
+},{"../core/widget":8,"../utils/drawing":14,"util":43}],26:[function(require,module,exports){
 var math = require('../utils/math')
 var util = require('util');
 var widget = require('../core/widget');
@@ -4064,7 +4120,7 @@ metro.prototype.advance = function() {
 metro.prototype.customDestroy = function() {
 	nx.removeAni(this.advance.bind(this))
 }
-},{"../core/widget":7,"../utils/math":14,"util":42}],26:[function(require,module,exports){
+},{"../core/widget":8,"../utils/math":15,"util":43}],27:[function(require,module,exports){
 var math = require('../utils/math')
 var util = require('util');
 var widget = require('../core/widget');
@@ -4219,7 +4275,7 @@ multislider.prototype.setSliderValue = function(slider,value) {
 	this.transmit(msg);
 }
 
-},{"../core/widget":7,"../utils/math":14,"util":42}],27:[function(require,module,exports){
+},{"../core/widget":8,"../utils/math":15,"util":43}],28:[function(require,module,exports){
 var math = require('../utils/math');
 var drawing = require('../utils/drawing');
 var util = require('util');
@@ -4424,7 +4480,7 @@ multitouch.prototype.sendit = function() {
 	}
 	this.transmit(this.val);
 }
-},{"../core/widget":7,"../utils/drawing":13,"../utils/math":14,"util":42}],28:[function(require,module,exports){
+},{"../core/widget":8,"../utils/drawing":14,"../utils/math":15,"util":43}],29:[function(require,module,exports){
 var math = require('../utils/math')
 var util = require('util');
 var widget = require('../core/widget');
@@ -4654,7 +4710,7 @@ number.prototype.release = function(e) {
 	}
 }
 
-},{"../core/widget":7,"../utils/math":14,"util":42}],29:[function(require,module,exports){
+},{"../core/widget":8,"../utils/math":15,"util":43}],30:[function(require,module,exports){
 var math = require('../utils/math')
 var util = require('util');
 var widget = require('../core/widget');
@@ -4864,7 +4920,7 @@ position.prototype.aniBounce = function() {
 position.prototype.customDestroy = function() {
 	nx.removeAni(this.aniBounce);
 }
-},{"../core/widget":7,"../utils/math":14,"util":42}],30:[function(require,module,exports){
+},{"../core/widget":8,"../utils/math":15,"util":43}],31:[function(require,module,exports){
 var util = require('util');
 var widget = require('../core/widget');
 var math = require('../utils/math')
@@ -5063,7 +5119,7 @@ range.prototype.move = function() {
 
 	}
 }
-},{"../core/widget":7,"../utils/math":14,"util":42}],31:[function(require,module,exports){
+},{"../core/widget":8,"../utils/math":15,"util":43}],32:[function(require,module,exports){
 var util = require('util');
 var widget = require('../core/widget');
 
@@ -5176,7 +5232,7 @@ select.prototype.draw = function() {
     this.canvas.style.border = "solid 2px "+this.colors.border;
 
 }
-},{"../core/widget":7,"util":42}],32:[function(require,module,exports){
+},{"../core/widget":8,"util":43}],33:[function(require,module,exports){
 var math = require('../utils/math')
 var util = require('util');
 var widget = require('../core/widget');
@@ -5393,7 +5449,7 @@ slider.prototype.move = function() {
 	this.transmit(this.val);
 }
 
-},{"../core/widget":7,"../utils/math":14,"util":42}],33:[function(require,module,exports){
+},{"../core/widget":8,"../utils/math":15,"util":43}],34:[function(require,module,exports){
 var math = require('../utils/math')
 var util = require('util');
 var widget = require('../core/widget');
@@ -5485,7 +5541,7 @@ tabs.prototype.click = function() {
 	this.transmit(this.val)
 	this.draw();
 }
-},{"../core/widget":7,"../utils/math":14,"util":42}],34:[function(require,module,exports){
+},{"../core/widget":8,"../utils/math":15,"util":43}],35:[function(require,module,exports){
 var math = require('../utils/math')
 var util = require('util');
 var widget = require('../core/widget');
@@ -5622,7 +5678,7 @@ tilt.prototype.customDestroy = function() {
 	window.removeEventListener("deviceorientation",this.boundChromeTilt,false);
 	window.removeEventListener("mozOrientation",this.boundMozTilt,false);
 }
-},{"../core/widget":7,"../utils/math":14,"util":42}],35:[function(require,module,exports){
+},{"../core/widget":8,"../utils/math":15,"util":43}],36:[function(require,module,exports){
 var drawing = require('../utils/drawing');
 var util = require('util');
 var widget = require('../core/widget');
@@ -5690,7 +5746,7 @@ toggle.prototype.click = function() {
 	this.transmit(this.val);
 }
 
-},{"../core/widget":7,"../utils/drawing":13,"util":42}],36:[function(require,module,exports){
+},{"../core/widget":8,"../utils/drawing":14,"util":43}],37:[function(require,module,exports){
 var drawing = require('../utils/drawing');
 var util = require('util');
 var widget = require('../core/widget');
@@ -5938,7 +5994,7 @@ typewriter.prototype.customDestroy = function() {
 	window.removeEventListener("keydown", this.boundType);
 	window.removeEventListener("keyup", this.boundUntype);
 }
-},{"../core/widget":7,"../utils/drawing":13,"util":42}],37:[function(require,module,exports){
+},{"../core/widget":8,"../utils/drawing":14,"util":43}],38:[function(require,module,exports){
 var util = require('util');
 var widget = require('../core/widget');
 var math = require('../utils/math')
@@ -6303,7 +6359,7 @@ waveform.prototype.move = function() {
 	this.draw();
 
 }
-},{"../core/widget":7,"../utils/math":14,"util":42}],38:[function(require,module,exports){
+},{"../core/widget":8,"../utils/math":15,"util":43}],39:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -6606,7 +6662,7 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}],39:[function(require,module,exports){
+},{}],40:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
@@ -6671,7 +6727,7 @@ process.chdir = function (dir) {
     throw new Error('process.chdir is not supported');
 };
 
-},{}],40:[function(require,module,exports){
+},{}],41:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -6696,14 +6752,14 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],41:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
 module.exports = function isBuffer(arg) {
   return arg && typeof arg === 'object'
     && typeof arg.copy === 'function'
     && typeof arg.fill === 'function'
     && typeof arg.readUInt8 === 'function';
 }
-},{}],42:[function(require,module,exports){
+},{}],43:[function(require,module,exports){
 (function (process,global){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -7293,7 +7349,7 @@ function hasOwnProperty(obj, prop) {
 }
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":41,"_process":39,"inherits":40}],43:[function(require,module,exports){
+},{"./support/isBuffer":42,"_process":40,"inherits":41}],44:[function(require,module,exports){
 var hasOwn = Object.prototype.hasOwnProperty;
 var toStr = Object.prototype.toString;
 var undefined;
@@ -7384,7 +7440,250 @@ module.exports = function extend() {
 };
 
 
-},{}],44:[function(require,module,exports){
+},{}],45:[function(require,module,exports){
+var WAAClock = require('./lib/WAAClock')
+
+module.exports = WAAClock
+if (typeof window !== 'undefined') window.WAAClock = WAAClock
+
+},{"./lib/WAAClock":46}],46:[function(require,module,exports){
+(function (process){
+var isBrowser = (typeof window !== 'undefined')
+
+var CLOCK_DEFAULTS = {
+  toleranceLate: 0.10,
+  toleranceEarly: 0.001
+}
+
+// ==================== Event ==================== //
+var Event = function(clock, deadline, func) {
+  this.clock = clock
+  this.func = func
+  this._cleared = false // Flag used to clear an event inside callback
+
+  this.toleranceLate = clock.toleranceLate
+  this.toleranceEarly = clock.toleranceEarly
+  this._latestTime = null
+  this._earliestTime = null
+  this.deadline = null
+  this.repeatTime = null
+
+  this.schedule(deadline)
+}
+
+// Unschedules the event
+Event.prototype.clear = function() {
+  this.clock._removeEvent(this)
+  this._cleared = true
+  return this
+}
+
+// Sets the event to repeat every `time` seconds.
+Event.prototype.repeat = function(time) {
+  if (time === 0)
+    throw new Error('delay cannot be 0')
+  this.repeatTime = time
+  if (!this.clock._hasEvent(this))
+    this.schedule(this.deadline + this.repeatTime)
+  return this
+}
+
+// Sets the time tolerance of the event.
+// The event will be executed in the interval `[deadline - early, deadline + late]`
+// If the clock fails to execute the event in time, the event will be dropped.
+Event.prototype.tolerance = function(values) {
+  if (typeof values.late === 'number')
+    this.toleranceLate = values.late
+  if (typeof values.early === 'number')
+    this.toleranceEarly = values.early
+  this._refreshEarlyLateDates()
+  if (this.clock._hasEvent(this)) {
+    this.clock._removeEvent(this)
+    this.clock._insertEvent(this)
+  }
+  return this
+}
+
+// Returns true if the event is repeated, false otherwise
+Event.prototype.isRepeated = function() { return this.repeatTime !== null }
+
+// Schedules the event to be ran before `deadline`.
+// If the time is within the event tolerance, we handle the event immediately.
+// If the event was already scheduled at a different time, it is rescheduled.
+Event.prototype.schedule = function(deadline) {
+  this._cleared = false
+  this.deadline = deadline
+  this._refreshEarlyLateDates()
+
+  if (this.clock.context.currentTime >= this._earliestTime) {
+    this._execute()
+  
+  } else if (this.clock._hasEvent(this)) {
+    this.clock._removeEvent(this)
+    this.clock._insertEvent(this)
+  
+  } else this.clock._insertEvent(this)
+}
+
+Event.prototype.timeStretch = function(tRef, ratio) {
+  if (this.isRepeated())
+    this.repeatTime = this.repeatTime * ratio
+
+  var deadline = tRef + ratio * (this.deadline - tRef)
+  // If the deadline is too close or past, and the event has a repeat,
+  // we calculate the next repeat possible in the stretched space.
+  if (this.isRepeated()) {
+    while (this.clock.context.currentTime >= deadline - this.toleranceEarly)
+      deadline += this.repeatTime
+  }
+  this.schedule(deadline)
+}
+
+// Executes the event
+Event.prototype._execute = function() {
+  if (this.clock._started === false) return
+  this.clock._removeEvent(this)
+
+  if (this.clock.context.currentTime < this._latestTime)
+    this.func(this)
+  else {
+    if (this.onexpired) this.onexpired(this)
+    console.warn('event expired')
+  }
+  // In the case `schedule` is called inside `func`, we need to avoid
+  // overrwriting with yet another `schedule`.
+  if (!this.clock._hasEvent(this) && this.isRepeated() && !this._cleared)
+    this.schedule(this.deadline + this.repeatTime) 
+}
+
+// Updates cached times
+Event.prototype._refreshEarlyLateDates = function() {
+  this._latestTime = this.deadline + this.toleranceLate
+  this._earliestTime = this.deadline - this.toleranceEarly
+}
+
+// ==================== WAAClock ==================== //
+var WAAClock = module.exports = function(context, opts) {
+  var self = this
+  opts = opts || {}
+  this.tickMethod = opts.tickMethod || 'ScriptProcessorNode'
+  this.toleranceEarly = opts.toleranceEarly || CLOCK_DEFAULTS.toleranceEarly
+  this.toleranceLate = opts.toleranceLate || CLOCK_DEFAULTS.toleranceLate
+  this.context = context
+  this._events = []
+  this._started = false
+}
+
+// ---------- Public API ---------- //
+// Schedules `func` to run after `delay` seconds.
+WAAClock.prototype.setTimeout = function(func, delay) {
+  return this._createEvent(func, this._absTime(delay))
+}
+
+// Schedules `func` to run before `deadline`.
+WAAClock.prototype.callbackAtTime = function(func, deadline) {
+  return this._createEvent(func, deadline)
+}
+
+// Stretches `deadline` and `repeat` of all scheduled `events` by `ratio`, keeping
+// their relative distance to `tRef`. In fact this is equivalent to changing the tempo.
+WAAClock.prototype.timeStretch = function(tRef, events, ratio) {
+  events.forEach(function(event) { event.timeStretch(tRef, ratio) })
+  return events
+}
+
+// Removes all scheduled events and starts the clock 
+WAAClock.prototype.start = function() {
+  if (this._started === false) {
+    var self = this
+    this._started = true
+    this._events = []
+
+    if (this.tickMethod === 'ScriptProcessorNode') {
+      var bufferSize = 256
+      // We have to keep a reference to the node to avoid garbage collection
+      this._clockNode = this.context.createScriptProcessor(bufferSize, 1, 1)
+      this._clockNode.connect(this.context.destination)
+      this._clockNode.onaudioprocess = function () {
+        process.nextTick(function() { self._tick() })
+      }
+    } else if (this.tickMethod === 'manual') null // _tick is called manually
+
+    else throw new Error('invalid tickMethod ' + this.tickMethod)
+  }
+}
+
+// Stops the clock
+WAAClock.prototype.stop = function() {
+  if (this._started === true) {
+    this._started = false
+    this._clockNode.disconnect()
+  }  
+}
+
+// ---------- Private ---------- //
+
+// This function is ran periodically, and at each tick it executes
+// events for which `currentTime` is included in their tolerance interval.
+WAAClock.prototype._tick = function() {
+  var event = this._events.shift()
+
+  while(event && event._earliestTime <= this.context.currentTime) {
+    event._execute()
+    event = this._events.shift()
+  }
+
+  // Put back the last event
+  if(event) this._events.unshift(event)
+}
+
+// Creates an event and insert it to the list
+WAAClock.prototype._createEvent = function(func, deadline) {
+  return new Event(this, deadline, func)
+}
+
+// Inserts an event to the list
+WAAClock.prototype._insertEvent = function(event) {
+  this._events.splice(this._indexByTime(event._earliestTime), 0, event)
+}
+
+// Removes an event from the list
+WAAClock.prototype._removeEvent = function(event) {
+  var ind = this._events.indexOf(event)
+  if (ind !== -1) this._events.splice(ind, 1)
+}
+
+// Returns true if `event` is in queue, false otherwise
+WAAClock.prototype._hasEvent = function(event) {
+ return this._events.indexOf(event) !== -1
+}
+
+// Returns the index of the first event whose deadline is >= to `deadline`
+WAAClock.prototype._indexByTime = function(deadline) {
+  // performs a binary search
+  var low = 0
+    , high = this._events.length
+    , mid
+  while (low < high) {
+    mid = Math.floor((low + high) / 2)
+    if (this._events[mid]._earliestTime < deadline)
+      low = mid + 1
+    else high = mid
+  }
+  return low
+}
+
+// Converts from relative time to absolute time
+WAAClock.prototype._absTime = function(relTime) {
+  return relTime + this.context.currentTime
+}
+
+// Converts from absolute time to relative time 
+WAAClock.prototype._relTime = function(absTime) {
+  return absTime - this.context.currentTime
+}
+}).call(this,require('_process'))
+},{"_process":40}],47:[function(require,module,exports){
 /* Web Font Loader v1.6.26 - (c) Adobe Systems, Google. License: Apache 2.0 */(function(){function aa(a,b,c){return a.call.apply(a.bind,arguments)}function ba(a,b,c){if(!a)throw Error();if(2<arguments.length){var d=Array.prototype.slice.call(arguments,2);return function(){var c=Array.prototype.slice.call(arguments);Array.prototype.unshift.apply(c,d);return a.apply(b,c)}}return function(){return a.apply(b,arguments)}}function p(a,b,c){p=Function.prototype.bind&&-1!=Function.prototype.bind.toString().indexOf("native code")?aa:ba;return p.apply(null,arguments)}var q=Date.now||function(){return+new Date};function ca(a,b){this.a=a;this.m=b||a;this.c=this.m.document}var da=!!window.FontFace;function t(a,b,c,d){b=a.c.createElement(b);if(c)for(var e in c)c.hasOwnProperty(e)&&("style"==e?b.style.cssText=c[e]:b.setAttribute(e,c[e]));d&&b.appendChild(a.c.createTextNode(d));return b}function u(a,b,c){a=a.c.getElementsByTagName(b)[0];a||(a=document.documentElement);a.insertBefore(c,a.lastChild)}function v(a){a.parentNode&&a.parentNode.removeChild(a)}
 function w(a,b,c){b=b||[];c=c||[];for(var d=a.className.split(/\s+/),e=0;e<b.length;e+=1){for(var f=!1,g=0;g<d.length;g+=1)if(b[e]===d[g]){f=!0;break}f||d.push(b[e])}b=[];for(e=0;e<d.length;e+=1){f=!1;for(g=0;g<c.length;g+=1)if(d[e]===c[g]){f=!0;break}f||b.push(d[e])}a.className=b.join(" ").replace(/\s+/g," ").replace(/^\s+|\s+$/,"")}function y(a,b){for(var c=a.className.split(/\s+/),d=0,e=c.length;d<e;d++)if(c[d]==b)return!0;return!1}
 function z(a){if("string"===typeof a.f)return a.f;var b=a.m.location.protocol;"about:"==b&&(b=a.a.location.protocol);return"https:"==b?"https:":"http:"}function ea(a){return a.m.location.hostname||a.a.location.hostname}
