@@ -1,0 +1,58 @@
+<html>
+	<head>
+		<script src="../dist/mt.js"></script>
+			<script src="js/Tone.js"></script>
+		<link href="https://fonts.googleapis.com/css?family=Muli" rel="stylesheet">
+	</head>
+	<body onload="init()">
+
+
+		<div class="center-block" style="border:solid 0px">
+			<h1>Musician's Toolkit</h1>
+			<div>Interfaces, Tuning, Timing</div><br>
+		</div>
+
+		<div class="center-block" style="margin-top:50px">
+			<div id="vol" mt="dial" style="width:100px;height:150px"></div>
+		</div>
+
+		<code class="center-block">
+			HTML
+		</code>
+
+		<code class="center-block">
+			JS
+		</code>
+
+	</body>
+	<script>
+
+
+		function init() {
+			mt.init()
+			mt.tune.loadScale("ji_diatonic")
+		}
+
+		mt.onload = function() {
+
+			mt.colorize("#b26")
+
+			mt.ui.vol.event(function(v) {
+				console.log(v)
+			})
+		}
+
+		</script>
+		<style>
+			body{
+				font-family:'Muli', helvetica;
+			}
+			.center-block {
+				width:700px;
+				border:solid 1px #bbb;
+				margin:5px auto;
+				padding:10px;
+				display:block;
+			}
+		</style>
+</html>

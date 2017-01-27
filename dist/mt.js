@@ -5,23 +5,27 @@ var drawingUtils = require('./lib/utils/drawing');
 var mathUtils = require('./lib/utils/math');
 var extend = require('extend');
 var WebFont = require('webfontloader');
+var Tune = require('./lib/core/tuning')
 
 /************************************************
-*  INSTANTIATE NX MANAGER AND CREATE ELEMENTS   *
+*  INSTANTIATE mt MANAGER AND CREATE ELEMENTS   *
 ************************************************/
 
-window.nx = new manager();
-window.nx.onload = function() {};
-window.nx = extend(window.nx,domUtils)
-window.nx = extend(window.nx,drawingUtils)
-window.nx = extend(window.nx,mathUtils)
+window.mt = new manager();
+window.mt.onload = function() {};
+window.mt = extend(window.mt,domUtils)
+window.mt = extend(window.mt,drawingUtils)
+window.mt = extend(window.mt,mathUtils)
+window.mt = extend(window.mt, require('./lib/core/interval') )
+window.mt = extend(window.mt, require('./lib/core/control') )
+window.mt.tune = new Tune()
 
 // change something.
 
 /* this onload function turns canvases into nexus elements,
  * using the canvas's id as its var name */
 
-nx.init = function() {
+mt.init = function() {
 /*  try {
     WebFont.load({
       google: {
@@ -32,22 +36,267 @@ nx.init = function() {
     console.log("font not loaded")
   } */
 
-  nx.addStylesheet();
+  //mt.addStylesheet();
 
   // get all canvases on the page and add them to the manager
-  var allcanvi = document.getElementsByTagName("canvas");
-  for (i=0;i<allcanvi.length;i++) nx.transform(allcanvi[i]);
+  var alldivs = document.getElementsByTagName("div");
+  for (i=0;i<alldivs.length;i++) mt.transform(alldivs[i]);
 
-  if (nx.isTouchDevice) {
-    document.addEventListener("touchmove", nx.blockMove, true);
-    document.addEventListener("touchstart", nx.blockMove, true);
+  if (mt.isTouchDevice) {
+    document.addEventListener("touchmove", mt.blockMove, true);
+    document.addEventListener("touchstart", mt.blockMove, true);
   }
 
-  nx.onload();
+  mt.onload();
 
 };
 
-},{"./lib/core/manager":2,"./lib/utils/dom":4,"./lib/utils/drawing":5,"./lib/utils/math":6,"extend":36,"webfontloader":37}],2:[function(require,module,exports){
+},{"./lib/core/control":2,"./lib/core/interval":3,"./lib/core/manager":4,"./lib/core/tuning":6,"./lib/utils/dom":12,"./lib/utils/drawing":13,"./lib/utils/math":14,"extend":43,"webfontloader":44}],2:[function(require,module,exports){
+
+/*  @method  clip
+    @description Limits a number to within low and high values.
+    @param {float} [input value]
+    @param {float} [low limit]
+    @param {float} [high limit]
+*/
+mt.clip = function(value, low, high) {
+  return Math.min(high, Math.max(low, value));
+}
+
+/*  @method prune
+    @description Limits a float to within a certain number of decimal places
+    @param {float} [input value]
+    @param {integer} [max decimal places]
+*/
+mt.prune = function(data, scale) {
+  if (typeof data === "number") {
+    data = parseFloat(data.toFixed(scale));
+  } else if (data instanceof Array) {
+    for (var i=0;i<data.length;i++) {
+      if (typeof data[i]=="number") {
+        data[i] = parseFloat(data[i].toFixed(scale));
+      }
+    }
+  }
+  return data;
+}
+
+
+/** @method scale
+    @description Scales an input number to a new range of numbers
+    @param {float} [input value]
+    @param {float} [low1]  input range (low)
+    @param {float} [high1] input range (high)
+    @param {float} [low2] output range (low)
+    @param {float} [high2] output range (high)
+    ```js
+    nx.scale(5,0,10,0,100) // returns 50
+    nx.scale(5,0,10,1,2) // returns 1.5
+    ```
+*/
+mt.scale = function(inNum, inMin, inMax, outMin, outMax) {
+  return (((inNum - inMin) * (outMax - outMin)) / (inMax - inMin)) + outMin;
+}
+
+/** @method invert
+    @description Equivalent to nx.scale(input,0,1,1,0). Inverts a normalized (0-1) number.
+    @param {float} [input value]
+
+*/
+mt.invert = function (inNum) {
+  return scale(inNum, 1, 0, 0, 1);
+}
+
+
+/** @method mtof
+    @description MIDI to frequency conversion. Returns frequency in Hz.
+    @param {float} [MIDI] MIDI value to convert
+
+*/
+mt.mtof = function(midi) {
+  return Math.pow(2, ((midi-69)/12)) * 440;
+}
+
+
+/** @method interp
+    @description Interpolate between two numbers, using 0-1 as input.
+    @param {float} [lookup]  0-1 location between values
+    @param {float} [point1]  value to interpolate from (0)
+    @param {float} [point2]  value to interpolate to (1)
+*/
+mt.interp = function(loc,min,max) {
+  return loc * (max - min) + min;
+}
+
+/* @method rcolor
+  @description Get a random color value
+*/
+mt.rcolor = function() {
+  return "rgb(" + mt.random(255) + "," + mt.random(255) + "," + mt.random(255) + ")";
+}
+
+
+/**
+ * Returns a random entry from the arguments
+ */
+mt.pick = function() {
+
+  return arguments[mt.ri(arguments.length)]
+
+}
+
+/**
+ * A major scale in JI
+ * @type {Array}
+ */
+mt.major = [1/1,9/8,5/4,4/3,3/2,5/3,15/8]
+
+/**
+ * returns an octave multiplier (i.e. octave(0) return 1, octave (-1) returns 0.5)
+ * @param  {integer} num Octave
+ */
+mt.octave = function(num) {
+  return Math.pow(2,num)
+}
+
+
+
+mt.getCol = function(index,limit) {
+  return index%limit;
+}
+
+mt.getRow = function(index,limit) {
+  return Math.floor(index/limit);
+}
+
+/*mt.pick = function(array) {
+  return array[mt.random(array.length)];
+} */
+
+
+/** @method ri
+    @description Returns a random integer between two given scale parameters. If only one argument, uses 0 as the minimum.
+    @param {float} [min] Lower limit of random range.
+    @param {float} [max] Upper limit of random range.
+*/
+mt.ri = mt.random = function(bound1,bound2) {
+  if (!bound2) {
+    bound2 = bound1
+    bound1 = 0
+  }
+  var low = Math.min(bound1,bound2)
+  var high = Math.max(bound1,bound2)
+  return Math.floor(Math.random()*(high-low)+low)
+}
+/** @method rf
+    @description Returns a random float between 0 and a given scale parameter. If only one argument, uses 0 as the minimum.
+    @param {float} [min] Lower limit of random range.
+    @param {float} [max] Upper limit of random range.
+*/
+mt.rf = function(bound1,bound2) {
+  if (!bound2) {
+    bound2 = bound1
+    bound1 = 0
+  }
+  var low = Math.min(bound1,bound2)
+  var high = Math.max(bound1,bound2)
+  return Math.random()*(high-low)+low
+}
+
+/** @method cycle
+    @description Count a number upwards until it reaches a maximum, then send it back to a minimum value.<br>
+    I.e. cycle(x,0,5) will output 0,1,2,3,4,5,0,1,2... if called many times in succession
+    @param {float} [min] Lower limit of random range.
+    @param {float} [min] Lower limit of random range.
+    @param {float} [max] Upper limit of random range.
+*/
+mt.cycle = function(input,min,max) {
+  input++;
+  if (input >= max) {
+    input = min;
+  }
+  return input;
+}
+
+},{}],3:[function(require,module,exports){
+
+var VariableSpeedInterval = function(rate,func) {
+	this.rate = rate
+	this.on = true;
+	this.event = func ? func : function() { };
+	this.pulse = function() {
+		if (this.on) {
+      var diff = new Date().getTime() - this.time.last
+    //  console.log(diff)
+    //  this.time.tempRate = diff
+    //  console.log(diff)
+      var wander = diff - this.rate
+    //  console.log(wander)
+    //  console.log(wander)
+      this.time.tempRate = this.rate - wander
+      this.time.tempRate = (this.rate + this.time.tempRate) / 2
+    //  console.log(this.time.tempRate)
+			this.time.last = new Date().getTime()
+			this.event();
+			//var delay = force ? force : this.rate
+			this.timeout = setTimeout(this.pulse.bind(this),this.time.tempRate)
+		}
+	}
+	this.stop = function() {
+		this.on = false;
+	}
+	this.start = function() {
+		this.on = true;
+		this.pulse();
+	}
+	this.time = {
+		last: false,
+		cur: false,
+    tempRate: this.rate
+	}
+	this.ms = function(newrate) {
+		var oldrate = this.rate;
+		this.rate = newrate;
+
+		this.time.cur = new Date().getTime()
+		if (this.time.cur - this.time.last > newrate) {
+			clearTimeout(this.timeout)
+			this.pulse();
+		} else if (newrate < oldrate) {
+			clearTimeout(this.timeout)
+			var delay = this.rate - (this.time.cur - this.time.last);
+			if (delay < 0 ) { delay = 0 }
+			this.timeout = setTimeout(this.pulse.bind(this),delay)
+		}
+	}
+	this.start();
+}
+
+
+/*
+ * @method interval
+ * @description  interval with controllable speed / interval time
+ * @param {number} [rate]
+ * @param {function} [callback]
+ */
+exports.interval = function(rate,func) {
+	var _int = new VariableSpeedInterval(rate,func)
+	return _int;
+}
+
+/* use like this:
+    // func is optional
+	var x = interval(50, function() {   bla ... })
+	x.ms(100);
+	x.stop()
+	// later
+	x.start()
+	//can change function midway
+	x.event = function() { ... }
+
+*/
+
+},{}],4:[function(require,module,exports){
 
 /**
   @title NexusUI API
@@ -62,7 +311,6 @@ var timingUtils = require('../utils/timing');
 var drawingUtils = require('../utils/drawing');
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
-var transmit = require('../utils/transmit');
 //var WAAClock = require('waaclock');
 
 
@@ -70,15 +318,16 @@ var manager = module.exports = function() {
 
 /**
 
-  @class nx
+  @class mt
   @description Central nexusUI manager with shared utility functions for all nexusUI objects
 
 */
 
   EventEmitter.apply(this)
 
-  /**@property {object} widgets Contains all interface widgets (e.g. nx.widgets.dial1, nx.widgets.toggle1) */
+  /**@property {object} widgets Contains all interface widgets (e.g. mt.widgets.dial1, mt.widgets.toggle1) */
   this.widgets = new Object();
+  this.ui = new Object();
 
   this.elemTypeArr = new Array();
   this.aniItems = new Array();
@@ -116,6 +365,120 @@ util.inherits(manager, EventEmitter)
   @param {object} [settings] (Optional.) Extra settings for the new widget. This settings object may have any of the following properties: x (integer in px), y, w (width), h (height), name (widget's OSC name and canvas ID), parent (the ID of the element you wish to add the canvas into). If no settings are provided, the element will be at default size and appended to the body of the HTML document.
   */
 manager.prototype.add = function(type, args) {
+  //args may have optional properties: x, y, w, h, name, parent
+
+  if(type) {
+      var canv = document.createElement("canvas");
+      canv.setAttribute('mt', type);
+      if (args) {
+        if (args.x || args.y) {
+           canv.style.position = "absolute";
+        }
+        if (args.x) {
+           canv.style.left = args.x + "px";
+        }
+        if (args.y) {
+           canv.style.top = args.y + "px";
+        }
+        if (args.w) {
+           canv.style.width = args.w;
+           if (typeof args.w != "string")
+             canv.width = args.w;
+        }
+        if (args.h) {
+           canv.style.height = args.h;
+           if (typeof args.h != "string")
+             canv.height = args.h;
+        }
+        if (args.parent) {
+          var parent;
+          if (typeof args.parent === "string") {
+            parent = document.getElementById(args.parent);
+          } else if (args.parent instanceof HTMLElement){
+            parent = args.parent;
+          } else if (args.parent instanceof jQuery){
+            parent = args.parent[0];
+          }
+        }
+        if (args.name) {
+           canv.id = args.name
+        }
+      }
+      if (!parent) {
+        var parent = document.body
+      }
+      parent.appendChild(canv);
+      return this.transform(canv);
+  }
+}
+/** @method transform
+Transform an existing canvas into a NexusUI widget.
+@param {string} [canvasID] The ID of the canvas to be transformed.
+@param {string} [type] (Optional.) Specify which type of widget the canvas will become. If no type is given, the canvas must have an mt attribute with a valid widget type.
+*/
+manager.prototype.transform = function(div, type) {
+  for (var key in mt.ui) {
+    if (mt.ui[key].id == div.id) {
+      return;
+    }
+  }
+  if (type) {
+    var mtType = type;
+  } else {
+    var mtType = div.getAttribute("mt");
+  }
+
+  if (!mtType) {
+    return;
+  }
+  var elemCount = 0;
+  var newObj;
+
+  /* find out how many of the same elem type have come before
+    i.e. mt.elemTypeArr will look like [ dial, dial, toggle, toggle ]
+    allowing you to count how many dials already exist on the page
+    and give your new dial the appropriate index and id: dial3 */
+
+  for (j=0;j<this.elemTypeArr.length;j++) {
+    if (this.elemTypeArr[j] === mtType) {
+      elemCount++;
+    }
+  }
+
+  // add your new nexus element type to the element list
+  this.elemTypeArr.push(mtType);
+
+  // check to see if it has a pre-given ID
+  // and use that as its id if so
+  if (!div.id) {
+    var idNum = elemCount + 1;
+    div.id = mtType + idNum;
+  }
+
+  if(mtType) {
+    try {
+      var newObj = new (require('../modules')[mtType])(div.id);
+    } catch (err) {
+      console.log("creation of " + mtType + " module failed");
+      return;
+    }
+  }
+
+  newObj.type = mtType;
+
+  this.ui[newObj.id] = newObj;
+
+  newObj.init();
+  return newObj;
+}
+
+/**
+  @method add
+  Adds a NexusUI element to the webpage. This will create an HTML5 canvas and draw the interface on it.
+  @param {string} [type] NexusUI widget type (i.e. "dial").
+  @param {object} [settings] (Optional.) Extra settings for the new widget. This settings object may have any of the following properties: x (integer in px), y, w (width), h (height), name (widget's OSC name and canvas ID), parent (the ID of the element you wish to add the canvas into). If no settings are provided, the element will be at default size and appended to the body of the HTML document.
+  */
+manager.prototype.createWidget = function(type, args) {
   //args may have optional properties: x, y, w, h, name, parent
 
   if(type) {
@@ -159,68 +522,68 @@ manager.prototype.add = function(type, args) {
         var parent = document.body
       }
       parent.appendChild(canv);
-      return this.transform(canv);
+      return this.transformWidget(canv);
   }
 }
 
 /** @method transform
 Transform an existing canvas into a NexusUI widget.
 @param {string} [canvasID] The ID of the canvas to be transformed.
-@param {string} [type] (Optional.) Specify which type of widget the canvas will become. If no type is given, the canvas must have an nx attribute with a valid widget type.
+@param {string} [type] (Optional.) Specify which type of widget the canvas will become. If no type is given, the canvas must have an mt attribute with a valid widget type.
 */
-manager.prototype.transform = function(canvas, type) {
-  for (var key in nx.widgets) {
-    if (nx.widgets[key].canvasID == canvas.id) {
+manager.prototype.transformWidget = function(canvas, type) {
+  for (var key in mt.widgets) {
+    if (mt.widgets[key].canvasID == canvas.id) {
       return;
     }
   }
   if (type) {
-    var nxType = type;
+    var mtType = type;
   } else {
-    var nxType = canvas.getAttribute("nx");
+    var mtType = canvas.getAttribute("nx");
   }
 
-  if (!nxType) {
+  if (!mtType) {
     return;
   }
   var elemCount = 0;
   var newObj;
 
   /* find out how many of the same elem type have come before
-    i.e. nx.elemTypeArr will look like [ dial, dial, toggle, toggle ]
+    i.e. mt.elemTypeArr will look like [ dial, dial, toggle, toggle ]
     allowing you to count how many dials already exist on the page
     and give your new dial the appropriate index and id: dial3 */
 
   for (j=0;j<this.elemTypeArr.length;j++) {
-    if (this.elemTypeArr[j] === nxType) {
+    if (this.elemTypeArr[j] === mtType) {
       elemCount++;
     }
   }
 
   console.log(1)
   // add your new nexus element type to the element list
-  this.elemTypeArr.push(nxType);
+  this.elemTypeArr.push(mtType);
 
   // check to see if it has a pre-given ID
   // and use that as its id if so
   if (!canvas.id) {
     var idNum = elemCount + 1;
-    canvas.id = nxType + idNum;
+    canvas.id = mtType + idNum;
   }
 
-  console.log(nxType)
+  console.log(mtType)
   console.log(canvas.id)
 
-  if(nxType) {
+  if(mtType) {
     try {
-      var newObj = new (require('../widgets')[nxType])(canvas.id);
+      var newObj = new (require('../widgets')[mtType])(canvas.id);
     } catch (err) {
-      console.log("creation of " + nxType + " failed");
+      console.log("creation of " + mtType + " failed");
       return;
     }
   }
 
-  newObj.type = nxType;
+  newObj.type = mtType;
   console.log(newObj)
 
   this.widgets[newObj.canvasID] = newObj;
@@ -232,14 +595,6 @@ manager.prototype.transform = function(canvas, type) {
   return newObj;
 }
 
-/** @method transmit
-The "output" instructions for sending a widget's data to another application or to a JS callback. Inherited by each widget and executed when each widget is interacted with or its value changes. Set using nx.sendsTo() to ensure that all widgets inherit the new function correctly.
-@param {object} [data] The data to be transmitted. Each property of the object will become its own OSC message. (This works with objects nested to up to 2 levels).
-*/
-
-manager.prototype.transmit = function(data, passive) {
-  this.emit(data, passive);
-}
 
 /**
   @method colorize
@@ -248,8 +603,8 @@ manager.prototype.transmit = function(data, passive) {
   Change the color of all nexus objects, by aspect ([fill, accent, border, accentborder]
 
   ```js
-  nx.colorize("#00ff00") // changes the accent color by default
-  nx.colorize("border", "#000000") // changes the border color
+  mt.colorize("#00ff00") // changes the accent color by default
+  mt.colorize("border", "#000000") // changes the border color
   ```
 
 **/
@@ -281,7 +636,7 @@ manager.prototype.colorize = function(aspect, newCol) {
    *    GUI
    */
 
-/**  @property {object} colors The interface's color settings. Set with nx.colorize(). */
+/**  @property {object} colors The interface's color settings. Set with mt.colorize(). */
 manager.prototype.colors = {
   "accent": "#ff5500",
   "fill": "#eeeeee",
@@ -346,7 +701,7 @@ manager.prototype.setViewport = function(scale) {
 
 manager.prototype.setProp = function(prop,val) {
   if (prop && val) {
-    nx[prop] = val;
+    mt[prop] = val;
     for (var key in this.widgets) {
       this.widgets[key][prop] = val;
       this.widgets[key].draw()
@@ -355,7 +710,7 @@ manager.prototype.setProp = function(prop,val) {
 }
 
 manager.prototype.blockMove = function(e) {
-  if (e.target.attributes["nx"]) {
+  if (e.target.attributes["mt"]) {
      e.preventDefault();
      if (this.isAndroid) {
        e.stopPropagation ? e.stopPropagation() : false;
@@ -405,14 +760,14 @@ manager.prototype.skin = function(name) {
 
   var names = name.split("-")
 
-  nx.colorize("fill", nx.themes[names[0]].fill)
-  nx.colorize("border", nx.themes[names[0]].border)
-  nx.colorize("black", nx.themes[names[0]].black)
-  nx.colorize("white", nx.themes[names[0]].white)
+  mt.colorize("fill", mt.themes[names[0]].fill)
+  mt.colorize("border", mt.themes[names[0]].border)
+  mt.colorize("black", mt.themes[names[0]].black)
+  mt.colorize("white", mt.themes[names[0]].white)
 
-  nx.colorize("accent", nx.themes[names[1]])
+  mt.colorize("accent", mt.themes[names[1]])
 
-  document.body.style.backgroundColor = nx.themes[names[0]].body
+  document.body.style.backgroundColor = mt.themes[names[0]].body
 }
 
 
@@ -428,7 +783,7 @@ manager.prototype.labelSize = function(size) {
       }
     }
   }
-  var textLabels = document.querySelectorAll(".nxlabel")
+  var textLabels = document.querySelectorAll(".mtlabel")
 
   for (var i = 0; i < textLabels.length; i++) {
       textLabels[i].style.fontSize = size/2.8+"px"
@@ -451,13 +806,303 @@ manager.prototype.module = function(params) {
 
 }
 
-},{"../utils/drawing":5,"../utils/timing":7,"../utils/transmit":8,"../widgets":13,"events":31,"util":35}],3:[function(require,module,exports){
+},{"../modules":9,"../utils/drawing":13,"../utils/timing":15,"../widgets":20,"events":38,"util":42}],5:[function(require,module,exports){
+
+var Module = module.exports = function(target) {
+
+  this.id = target
+  this.parent = document.getElementById(target)
+  this.parent.style.overflow = "auto"
+  this.events = []
+
+}
+Module.prototype.event = function(cb) {
+  this.events.push(cb)
+}
+Module.prototype.emit = function(val) {
+  for (var i=0;i<this.events.length;i++) {
+    this.events[i](val)
+  }
+}
+Module.prototype.map = function(vin,vout,scale) {
+  this.event(function(v) {
+    vout = vin
+  })
+}
+
+},{}],6:[function(require,module,exports){
+var Tune = module.exports = function() {
+
+  	// the scale as ratios
+  	this.scale = []
+
+  	// i/o modes
+  	this.mode = {
+  		output: "frequency",
+  		input: "step"
+  	}
+
+  	// ET major, for reference
+  	this.etmajor = [ 261.62558,
+  		293.664764,
+  		329.627563,
+  		349.228241,
+  		391.995422,
+  		440,
+  		493.883301,
+  		523.25116
+  	]
+
+  	// Root frequency.
+  	this.tonic = 440     // * Math.pow(2,(60-69)/12);
+
+    this.loadScale("ji_diatonic")
+
+  }
+
+  /* Set the tonic frequency */
+
+  Tune.prototype.tonicize = function(newTonic) {
+  	this.tonic = newTonic
+  }
+
+
+  /* Return data in the mode you are in (freq, ratio, or midi) */
+
+  Tune.prototype.note = function(input,octave){
+
+  	var newvalue;
+
+  	if (this.mode.output == "frequency") {
+  		newvalue = this.frequency(input,octave)
+  	} else if (this.mode.output == "ratio") {
+  		newvalue = this.ratio(input,octave)
+  	} else if (this.mode.output == "MIDI") {
+  		newvalue = this.MIDI(input,octave)
+  	} else {
+  		newvalue = this.frequency(input,octave)
+  	}
+
+  	return newvalue;
+
+  }
+
+
+  /* Return freq data */
+
+  Tune.prototype.frequency = function(stepIn, octaveIn) {
+
+  	if (this.mode.input == "midi" || this.mode.input == "MIDI" ) {
+  		this.stepIn += 60
+  	}
+
+  	// what octave is our input
+  	var octave = Math.floor(stepIn/this.scale.length)
+
+  	if (octaveIn) {
+  		octave += octaveIn
+  	}
+
+  	// which scale degree (0 - scale length) is our input
+  	var scaleDegree = stepIn % this.scale.length
+
+  	while (scaleDegree < 0) {
+  		scaleDegree += this.scale.length
+  	}
+
+  	var freq = this.tonic*this.scale[scaleDegree]
+
+  	freq = freq*(Math.pow(2,octave))
+
+  	// truncate irrational numbers
+  	freq = Math.floor(freq*100000000000)/100000000000
+
+  	return freq
+
+  }
+
+  /* Force return ratio data */
+
+  Tune.prototype.ratio = function(stepIn, octaveIn) {
+
+  	if (this.mode.input == "midi" || this.mode.input == "MIDI" ) {
+  		this.stepIn += 60
+  	}
+
+  	// what octave is our input
+  	var octave = Math.floor(stepIn/this.scale.length)
+
+  	if (octaveIn) {
+  		octave += octaveIn
+  	}
+
+  	// which scale degree (0 - scale length) is our input
+  	var scaleDegree = stepIn % this.scale.length
+
+  	// what ratio is our input to our key
+  	var ratio = Math.pow(2,octave)*this.scale[scaleDegree]
+
+  	ratio = Math.floor(ratio*100000000000)/100000000000
+
+  	return ratio
+
+  }
+
+  /* Force return adjusted MIDI data */
+
+  Tune.prototype.MIDI = function(stepIn,octaveIn) {
+
+  	var newvalue = this.frequency(stepIn,octaveIn)
+
+  	var n = 69 + 12*Math.log(newvalue/440)/Math.log(2)
+
+  	n = Math.floor(n*1000000000)/1000000000
+
+  	return n
+
+  }
+
+  /* Load a new scale */
+
+  Tune.prototype.loadScale = function(name){
+
+  	/* load the scale */
+  	var freqs = this.TuningList[name].frequencies
+  	this.scale = []
+  	for (var i=0;i<freqs.length-1;i++) {
+  		this.scale.push(freqs[i]/freqs[0])
+  	}
+
+  	/* visualize in console */
+  	console.log(" ");
+  	console.log("LOADED "+name);
+  	console.log(this.TuningList[name].description);
+  	console.log(this.scale);
+  	var vis = [];
+  	for (var i=0;i<100;i++) {
+  		vis[i] = " ";
+  	}
+  	for (var i=0;i<this.scale.length;i++) {
+  		var spot = Math.round(this.scale[i] * 100 - 100);
+  		if (i<10) {
+  			vis.splice(spot,1,i+1);
+  		} else {
+  			vis.splice(spot,5,i+1);
+  		}
+  	}
+  	var textvis = "";
+  	for (var i=0;i<vis.length;i++) {
+  		textvis += vis[i];
+  	}
+  	console.log(name)
+  	console.log(textvis)
+  	// ET scale vis
+  	var vis = [];
+  	for (var i=0;i<100;i++) {
+  		vis[i] = " ";
+  	}
+  	for (var i=0;i<this.etmajor.length;i++) {
+  		var spot = Math.round(this.etmajor[i]/this.etmajor[0] * 100 - 100);
+  		if (i<10) {
+  			vis.splice(spot,1,i+1);
+  		} else {
+  			vis.splice(spot,5,i+1);
+  		}
+
+  	}
+  	var textvis = "";
+  	for (var i=0;i<vis.length;i++) {
+  		textvis += vis[i];
+  	}
+  	console.log(textvis)
+  	console.log("equal-tempered major (reference)")
+
+  }
+
+  /* Search the names of tunings
+  	 Returns an array of names of tunings */
+
+  Tune.prototype.search = function(letters) {
+  	var possible = []
+  	for (var key in this.TuningList) {
+  		if (key.toLowerCase().indexOf(letters.toLowerCase())!=-1) {
+  			possible.push(key)
+  		}
+  	}
+  	return possible
+  }
+
+  /* Return a collection of notes as an array */
+
+  Tune.prototype.chord = function(midis) {
+  	var output = []
+  	for (var i=0;i<midis.length;i++) {
+  		output.push(this.note(midis[i]))
+  	}
+  	return output;
+  }
+
+
+  /* Change the tonic frequency? */
+
+  Tune.prototype.root = function(newmidi, newfreq) {
+  	this.rootFreq = newfreq
+  	// not working now ... needs much work.
+  	// setKey is not transposing now, either.
+  }
+
+Tune.prototype.TuningList = {
+  "ji_12": {
+    "frequencies":[
+      261.6255653006,279.06726965397,294.32876096318,313.95067836072,327.03195662575,348.83408706747,366.27579142084,392.4383479509,418.60090448096,436.04260883433,470.92601754108,490.54793493862,523.2511306012
+    ],
+    "description": "Basic JI with 7-limit tritone"
+  },
+  "ji_12a": {
+    "frequencies":[
+      261.6255653006,279.06726965397,294.32876096318,305.22982618403,327.03195662575,348.83408706747,366.27579142084,392.4383479509,418.60090448096,448.50096908674,457.84473927605,490.54793493862,523.2511306012
+    ],
+    "description": "7-limit 12-tone scale"
+  },
+  "ji_12b": {
+    "frequencies": [
+      261.6255653006,272.52663052146,290.69507255622,305.22982618403,327.03195662575,343.38355445704,366.27579142084,392.4383479509,418.60090448096,448.50096908674,457.84473927605,490.54793493862,523.2511306012
+    ],
+    "description": "alternate 7-limit 12-tone scale"
+  },
+  "ji_12c":{
+    "frequencies":[
+      261.6255653006,272.52663052146,294.32876096318,313.95067836072,327.03195662575,348.83408706747,367.91095120397,392.4383479509,418.60090448096,436.04260883433,457.84473927605,490.54793493862,523.2511306012
+    ],
+    "description": "Kurzweil \"Just with natural b7th\", is Sauveur Just with 7/4"
+  },
+  "et": {
+    frequencies: [
+        261.62558,
+    		293.664764,
+    		329.627563,
+    		349.228241,
+    		391.995422,
+    		440,
+    		493.883301,
+    		523.25116
+    ],
+    "description": "Et Major"
+  },
+  "ji_diatonic": {
+    "frequencies":[
+      261.6255653006, 294.32876096318, 327.03195662575, 348.83408706747, 392.4383479509, 436.04260883433, 490.54793493862
+    ],
+    "description": "Basic JI with 7-limit tritone"
+  }
+}
+
+},{}],7:[function(require,module,exports){
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
 var domUtils = require('../utils/dom');
 var drawingUtils = require('../utils/drawing');
 var timingUtils = require('../utils/timing');
-var transmit = require('../utils/transmit');
 
 
 
@@ -481,7 +1126,6 @@ var widget = module.exports = function (target) {
   this.canvasID = target;
   // var newcanv = document.createElement("canvas")
 
-  console.log(5)
   /**
    * @property {string} type The type of NexusUI widget (i.e. "dial", "toggle", "slider"). Set automatically at creation.
    */
@@ -492,7 +1136,7 @@ var widget = module.exports = function (target) {
   this.context = this.canvas.getContext("2d");
 
   this.checkPercentage();
-  this.canvas.className = this.canvas.className ? this.canvas.className += " nx" : "nx"
+  this.canvas.className = this.canvas.className ? this.canvas.className += " mt" : "mt"
 
   this.canvas.height = window.getComputedStyle(document.getElementById(target), null).getPropertyValue("height").replace("px","");
   this.canvas.width = window.getComputedStyle(document.getElementById(target), null).getPropertyValue("width").replace("px","");
@@ -537,12 +1181,12 @@ var widget = module.exports = function (target) {
   /**  @property {integer} lineWidth The default line width for drawing (default is 2 pixels). In many widgets, this is overwritten to suite the widget. However it does dictate the border width on most widgets. */
   this.lineWidth = 2;
   this.context.lineWidth = this.lineWidth;
-  /**  @property {object} colors A widget's individual color scheme. Inherited from nx.colors. (Has properties "accent", "fill", "border", "black", and "white") */
+  /**  @property {object} colors A widget's individual color scheme. Inherited from mt.colors. (Has properties "accent", "fill", "border", "black", and "white") */
   this.colors = new Object();
-  // define colors individually so they are not pointers to nx.colors
+  // define colors individually so they are not pointers to mt.colors
   // this way each object can have its own color scheme
-  for (var key in nx.colors) {
-    this.colors[key] = nx.colors[key]
+  for (var key in mt.colors) {
+    this.colors[key] = mt.colors[key]
   }
 
   console.log(7)
@@ -567,7 +1211,7 @@ var widget = module.exports = function (target) {
   this.events = new Object();
 
   // Setup interaction
-  if (nx.isTouchDevice) {
+  if (mt.isTouchDevice) {
     this.canvas.ontouchstart = this.preTouch;
     this.canvas.ontouchmove = this.preTouchMove;
     this.canvas.ontouchend = this.preTouchRelease;
@@ -575,27 +1219,36 @@ var widget = module.exports = function (target) {
     this.canvas.addEventListener('mousedown', this.preClick, false);
   }
 
-  this.fontSize = nx.fontSize;
-  this.fontWeight = nx.fontWeight;
-  this.font = nx.font;
+  this.fontSize = mt.fontSize;
+  this.fontWeight = mt.fontWeight;
+  this.font = mt.font;
 
   this.clickCB = false;
   this.releaseCB = false;
 
   this.actuated = true;
 
-  console.log(8)
-
+  this.on('*', function(v) {
+    for (var i=0;i<this.events.length;i++) {
+      this.events[i](v)
+    }
+  })
+  this.events = []
 
 }
 util.inherits(widget, EventEmitter)
 
 /**  @method transmit
-    The "output" instructions for sending the widget's data to another application or to a JS callback. Inherited from nx.transmit and executed when each widget is interacted with or during animation. Set using .sendsTo() to use our built-in transmission defintions.
+    The "output" instructions for sending the widget's data to another application or to a JS callback. Inherited from mt.transmit and executed when each widget is interacted with or during animation. Set using .sendsTo() to use our built-in transmission defintions.
     @param {object} [data] The data to be transmitted. Each property of the object will become its own OSC message if sending via "ajax" or "max7" protocols. (This works with objects nested to up to 2 levels).
 */
-widget.prototype.transmit = nx.transmit;
+widget.prototype.transmit = function(data,relay) {
+  this.emit('*',data,relay)
+}
 
+widget.prototype.event = function(cb) {
+  this.events.push(cb)
+}
 
 /**  @method getOffset
   Recalculate the computed offset of the widget's canvas and store it in widget.offset. This is useful if a widget has been moved after being created.
@@ -817,8 +1470,8 @@ widget.prototype.set = function(data, transmit) {
     Remove the widget object, canvas, and all related event listeners from the document.
     */
 widget.prototype.destroy = function() {
-  var type = nx.elemTypeArr.indexOf(this.getName())
-  nx.elemTypeArr.splice(type,1)
+  var type = mt.elemTypeArr.indexOf(this.getName())
+  mt.elemTypeArr.splice(type,1)
 
   this.canvas.ontouchmove = null;
   this.canvas.ontouchend = null;
@@ -836,7 +1489,7 @@ widget.prototype.destroy = function() {
   this.customDestroy();
 
   var id = this.canvasID
-  delete nx.widgets[id];
+  delete mt.widgets[id];
   delete window[id];
 
 }
@@ -923,13 +1576,155 @@ widget.prototype.resize = function(w,h) {
 }
 
 widget.prototype.normalize = function(value) {
-  return nx.scale(value,this.min,this.max,0,1)
+  return mt.scale(value,this.min,this.max,0,1)
 }
 widget.prototype.rangify = function(value) {
-  return nx.scale(value,0,1,this.min,this.max)
+  return mt.scale(value,0,1,this.min,this.max)
 }
 
-},{"../utils/dom":4,"../utils/drawing":5,"../utils/timing":7,"../utils/transmit":8,"events":31,"util":35}],4:[function(require,module,exports){
+},{"../utils/dom":12,"../utils/drawing":13,"../utils/timing":15,"events":38,"util":42}],8:[function(require,module,exports){
+var util = require('util');
+var component = require('../core/module');
+
+var Dial = module.exports = function(target) {
+
+  component.call(this,target)
+
+  //this.id = target
+
+  //this.width = ....
+
+  this.widgets = {
+    dial: mt.createWidget("dial",{parent: target}),
+    number: mt.createWidget("number",{parent: target, w: 35, h: 20})
+  }
+  this.widgets.number.canvas.style.margin = "5px auto 0px"
+
+  //  this.events = []
+
+}
+util.inherits(Dial,component)
+
+Dial.prototype.init = function() {
+  this.widgets.dial.event(function(v) {
+    this.emit(v.value)
+    this.widgets.number.set({value: v.value})
+  }.bind(this))
+  this.widgets.number.event(function(v) {
+    this.emit(v.value)
+    this.widgets.dial.set({value: v.value})
+  }.bind(this))
+}
+
+},{"../core/module":5,"util":42}],9:[function(require,module,exports){
+module.exports = {
+  slider: require("./slider.js"),
+  metronome: require("./metro.js"),
+  dial: require("./dial.js")
+}
+
+},{"./dial.js":8,"./metro.js":10,"./slider.js":11}],10:[function(require,module,exports){
+var util = require('util');
+var component = require('../core/module');
+
+var Metronome = module.exports = function(target) {
+
+  component.call(this,target)
+
+  this.widgets = {
+    toggle: mt.createWidget("toggle",{parent: target, w: 25, h: 25}),
+    button: mt.createWidget("button",{parent: target, w: 25, h: 25}),
+    number: mt.createWidget("number",{parent: target, w: 50, h: 25})
+  }
+  this.widgets.toggle.canvas.style.float = "left"
+  this.widgets.button.canvas.style.float = "left"
+  this.widgets.number.canvas.style.float = "left"
+  this.widgets.button.canvas.style.marginLeft = "2px"
+  this.widgets.number.canvas.style.marginLeft = "2px"
+
+}
+util.inherits(Metronome,component)
+
+Metronome.prototype.init = function() {
+
+  this.interval = mt.interval(100, function() {
+    this.emit(true)
+    this.widgets.button.set({press:true})
+    setTimeout(this.widgets.button.set.bind(this.widgets.button,{press:false}),20)
+  }.bind(this))
+  this.interval.stop()
+
+  this.widgets.toggle.event(function(v) {
+    if (v.value) {
+      this.interval.start()
+    } else {
+      this.interval.stop()
+    }
+  }.bind(this))
+  this.widgets.button.event(function(v) {
+
+  }.bind(this))
+  this.widgets.number.event(function(v) {
+    this.interval.ms(v.value)
+  }.bind(this))
+}
+
+
+/* API */
+
+Metronome.prototype.ms = function(ms) {
+  this.widgets.number.set({value: ms},false)
+  this.interval.ms(ms)
+}
+
+},{"../core/module":5,"util":42}],11:[function(require,module,exports){
+var util = require('util');
+var component = require('../core/module');
+
+var Slider = module.exports = function(target) {
+
+  component.call(this,target)
+
+  //this.id = target
+
+  this.widgets = {
+    slider: mt.createWidget("slider",{parent: target}),
+    number: mt.createWidget("number",{parent: target, w: 35, h: 20})
+  }
+  this.widgets.number.canvas.style.marginTop = "3px"
+
+//  this.events = []
+
+
+}
+util.inherits(Slider,component)
+
+Slider.prototype.init = function() {
+  this.widgets.slider.event(function(v) {
+  this.emit(v.value)
+    this.widgets.number.set({value: v.value})
+  }.bind(this))
+  this.widgets.number.event(function(v) {
+    this.emit(v.value)
+    this.widgets.slider.set({value: v.value})
+  }.bind(this))
+}
+/*
+Slider.prototype.event = function(cb) {
+  this.events.push(cb)
+}
+Slider.prototype.emit = function(val) {
+  for (var i=0;i<this.events.length;i++) {
+    this.events[i](val)
+  }
+}
+
+Slider.prototype.map = function(vin,vout,scale) {
+
+}
+*/
+
+},{"../core/module":5,"util":42}],12:[function(require,module,exports){
 
 /** @class utils 
   Shared utility functions. These functions are exposed as methods of nx in NexusUI projects, i.e. .mtof() here can be accessed in your project with nx.mtof().
@@ -1005,7 +1800,7 @@ exports.getTouchPosition = function(e, canvas_offset) {
   }
   return click_position;
 }
-},{}],5:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 var math = require('./math')
 
 /** @method randomColor
@@ -1100,13 +1895,13 @@ exports.shadeBlendConvert = function(p, from, to) {
     if(h)return "rgb("+r((t[0]-f[0])*p+f[0])+","+r((t[1]-f[1])*p+f[1])+","+r((t[2]-f[2])*p+f[2])+(f[3]<0&&t[3]<0?")":","+(f[3]>-1&&t[3]>-1?r(((t[3]-f[3])*p+f[3])*10000)/10000:t[3]<0?f[3]:t[3])+")");
     else return "#"+(0x100000000+(f[3]>-1&&t[3]>-1?r(((t[3]-f[3])*p+f[3])*255):t[3]>-1?r(t[3]*255):f[3]>-1?r(f[3]*255):255)*0x1000000+r((t[0]-f[0])*p+f[0])*0x10000+r((t[1]-f[1])*p+f[1])*0x100+r((t[2]-f[2])*p+f[2])).toString(16).slice(f[3]>-1||t[3]>-1?1:3);
 }
-},{"./math":6}],6:[function(require,module,exports){
+},{"./math":14}],14:[function(require,module,exports){
 
 
-/** @method toPolar 
+/** @method toPolar
     Receives cartesian coordinates and returns polar coordinates as an object with 'radius' and 'angle' properties.
-    @param {float} [x] 
-    @param {float} [y] 
+    @param {float} [x]
+    @param {float} [y]
     ```js
     var ImOnACircle = nx.toPolar({ x: 20, y: 50 }})
     ```
@@ -1121,10 +1916,10 @@ exports.toPolar = function(x,y) {
   return {radius: r, angle: theta};
 }
 
-/** @method toCartesian 
+/** @method toCartesian
     Receives polar coordinates and returns cartesian coordinates as an object with 'x' and 'y' properties.
-    @param {float} [radius] 
-    @param {float} [angle] 
+    @param {float} [radius]
+    @param {float} [angle]
 */
 exports.toCartesian = function(radius, angle){
   var cos = Math.cos(angle);
@@ -1133,11 +1928,11 @@ exports.toCartesian = function(radius, angle){
 }
 
 
-/** @method clip 
+/** @method clip
     Limits a number to within low and high values.
-    @param {float} [input value] 
-    @param {float} [low limit] 
-    @param {float} [high limit] 
+    @param {float} [input value]
+    @param {float} [low limit]
+    @param {float} [high limit]
     ```js
     nx.clip(5,0,10) // returns 5
     nx.clip(15,0,10) // returns 10
@@ -1148,10 +1943,10 @@ exports.clip = function(value, low, high) {
   return Math.min(high, Math.max(low, value));
 }
 
-/** @method prune 
+/** @method prune
     Limits a float to within a certain number of decimal places
-    @param {float} [input value] 
-    @param {integer} [max decimal places] 
+    @param {float} [input value]
+    @param {integer} [max decimal places]
     ```js
     nx.prine(1.2345, 3) // returns 1.234
     nx.prune(1.2345, 1) // returns 1.2
@@ -1172,9 +1967,9 @@ exports.prune = function(data, scale) {
 }
 
 
-/** @method scale 
+/** @method scale
     Scales an input number to a new range of numbers
-    @param {float} [input value] 
+    @param {float} [input value]
     @param {float} [low1]  input range (low)
     @param {float} [high1] input range (high)
     @param {float} [low2] output range (low)
@@ -1185,12 +1980,12 @@ exports.prune = function(data, scale) {
     ```
 */
 exports.scale = function(inNum, inMin, inMax, outMin, outMax) {
-  return (((inNum - inMin) * (outMax - outMin)) / (inMax - inMin)) + outMin;  
+  return (((inNum - inMin) * (outMax - outMin)) / (inMax - inMin)) + outMin;
 }
 
-/** @method invert 
-    Equivalent to nx.scale(input,0,1,1,0). Inverts a normalized (0-1) number. 
-    @param {float} [input value]  
+/** @method invert
+    Equivalent to nx.scale(input,0,1,1,0). Inverts a normalized (0-1) number.
+    @param {float} [input value]
     ```js
     nx.invert(0.25) // returns 0.75
     nx.invert(0) // returns 1
@@ -1204,14 +1999,14 @@ exports.bounce = function(posIn, borderMin, borderMax, delta) {
   if (posIn > borderMin && posIn < borderMax) {
     return delta;
   } else if (posIn <= borderMin) {
-    return Math.abs(delta); 
+    return Math.abs(delta);
   } else if (posIn >= borderMax) {
     return Math.abs(delta) * (-1);
   }
 }
 
 
-/** @method mtof 
+/** @method mtof
     MIDI to frequency conversion. Returns frequency in Hz.
     @param {float} [MIDI] MIDI value to convert
     ```js
@@ -1223,7 +2018,7 @@ exports.mtof = function(midi) {
 }
 
 
-/** @method random 
+/** @method random
     Returns a random integer between 0 a given scale parameter.
     @param {float} [scale] Upper limit of random range.
     ```js
@@ -1236,7 +2031,7 @@ exports.random = function(scale) {
 
 
 exports.interp = function(loc,min,max) {
-  return loc * (max - min) + min;  
+  return loc * (max - min) + min;
 }
 
 exports.lphistory = {}
@@ -1293,7 +2088,8 @@ exports.lp3 = function(value,pvalue,limit) {
 
   return newvalue;
 }
-},{}],7:[function(require,module,exports){
+
+},{}],15:[function(require,module,exports){
 
 
 exports.throttle = function(func, wait) {
@@ -1315,112 +2111,17 @@ exports.throttle = function(func, wait) {
     }
   }
 }
-},{}],8:[function(require,module,exports){
-exports.defineTransmit = function(protocol) {
-  
-  var newTransmit;
-
-  if (typeof(protocol)=="function") {
-    return protocol;
-  } else {
-    switch (protocol) {
-      case 'js':
-        newTransmit = function(data,passive) {
-          this.makeOSC(this.emit, data, passive);
-          this.emit('*',data, passive);
-        }
-        return newTransmit
-      
-      case 'ajax':
-        newTransmit = function(data) {
-          this.makeOSC(exports.ajaxTransmit, data);
-        }
-        return newTransmit
-      
-      case 'node':
-        newTransmit = function(data) {
-          this.makeOSC(exports.nodeTransmit, data);
-        }
-        return newTransmit
-      
-      case 'ios':
-        newTransmit = function(data) {
-          
-        }
-        return newTransmit
-      
-      case 'max':
-        newTransmit = function(data) {
-          this.makeOSC(exports.maxTransmit, data);
-        }
-        return newTransmit
-
-      case 'wc':
-        newTransmit = function(data, passive) {
-          this.emit('internal',data, passive);
-        }
-        return newTransmit
-    }
-  }
-}
-
-exports.setGlobalTransmit = function(protocol) {
-  var newTransmit = exports.defineTransmit(protocol)
-  this.transmit = newTransmit
-  this.destination = protocol
-  for (var key in nx.widgets) {
-    this.widgets[key].transmit = newTransmit;
-    this.widgets[key].destination = protocol;
-  }
-}
-
-exports.setWidgetTransmit = function(protocol) {
-  var newTransmit = exports.defineTransmit(protocol)
-  this.transmit = newTransmit
-  this.destination = protocol
-}
-
-
-exports.ajaxTransmit = function(subPath, data) {
-
-    var oscPath = subPath=='value' ? this.oscPath : this.oscPath+"/"+subPath;
-     
-    xmlhttp=new XMLHttpRequest();
-    xmlhttp.open("POST",nx.ajaxPath,true);
-    xmlhttp.setRequestHeader("Content-type","application/x-www-form-urlencoded");
-    xmlhttp.send('oscName='+oscPath+'&data='+data);
-
-}
-
-exports.setAjaxPath = function(path) {
-  this.ajaxPath = path;
-}
-
-exports.nodeTransmit = function(subPath, data) {
-   
-    var msg = {
-      oscName: subPath=='value' ? this.oscPath : this.oscPath+"/"+subPath,
-      value: data
-    }
-    socket.emit('nx', msg)
-
-}
-
-exports.maxTransmit = function (subPath, data) {
-    var oscPath = subPath=='value' ? this.oscPath : this.oscPath+"/"+subPath;
-    window.max.outlet(oscPath + " " + data);
-}
-},{}],9:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 var util = require('util');
 var widget = require('../core/widget');
 var drawing = require('../utils/drawing');
 
 var button = module.exports = function(target) {
 
-/** 
-	
+/**
+
 	@public
-	@class button 
+	@class button
 
 	Touch button with three modes of interaction ("toggle", "impulse", and "aftertouch").
 	```html
@@ -1432,22 +2133,22 @@ var button = module.exports = function(target) {
 	this.defaultSize = { width: 50, height: 50 };
 	widget.call(this, target);
 
-	/** 
+	/**
 		@property {object}  val  Main value set and output, with sub-properties:
 		| &nbsp; | data
 		| --- | ---
 		| *press* | 0 (clicked) or 1 (unclicked)
 		| *x* | 0-1 float of x-position of click ("aftertouch" mode only)
-		| *y* | 0-1 float of y-position of click ("aftertouch" mode only) 
-		
+		| *y* | 0-1 float of y-position of click ("aftertouch" mode only)
+
 		When the widget is interacted with, val is sent as the output data for the widget.
-		```js 
+		```js
 		button1.on('*', function(data) {
 			// some code using data.press, data.x, and data.y
 		});
 		```
-		Or, if NexusUI is outputting OSC (e.g. if nx.sendsTo("ajax")), val will be broken into OSC messages: 
-		```html 
+		Or, if NexusUI is outputting OSC (e.g. if nx.sendsTo("ajax")), val will be broken into OSC messages:
+		```html
 		/button1/press 1
 		/button1/x 37
 		/button1/y 126
@@ -1456,13 +2157,13 @@ var button = module.exports = function(target) {
 	this.val = {
 		press: 0
 	}
-	
+
 	/** @property {string}  mode  Interaction mode. Options:
 	<b>impulse</b> &nbsp; 1 on click <br>
 	<b>toggle</b> &nbsp;  1 on click, 0 on release<br>
-	<b>aftertouch</b> &nbsp; 1, x, y on click; x, y on move; 0, x, y on release _(default)_ <br> 
-	```js 
-	button1.mode = "aftertouch" 
+	<b>aftertouch</b> &nbsp; 1, x, y on click; x, y on move; 0, x, y on release _(default)_ <br>
+	```js
+	button1.mode = "aftertouch"
 	```
 	*/
 	this.mode = "aftertouch";
@@ -1482,10 +2183,10 @@ util.inherits(button, widget);
 
 button.prototype.init = function() {
 	this.center = {
-		x: this.GUI.w/2,
-		y: this.GUI.h/2
+		x: this.width/2,
+		y: this.height/2
 	}
-	this.strokeWidth = this.GUI.w/20;
+	this.strokeWidth = this.width/20;
 	this.radius = (Math.min(this.center.x, this.center.y))
 	this.draw();
 }
@@ -1493,9 +2194,9 @@ button.prototype.init = function() {
 button.prototype.draw = function() {
 
 	this.erase();
-	
+
 	with (this.context) {
-		
+
 		if (this.image !== null) {
 			// Image Button
 			if (!this.val.press) {
@@ -1513,16 +2214,16 @@ button.prototype.draw = function() {
 					// No touch image, apply highlighting
 					globalAlpha = 0.5;
 					fillStyle = this.colors.accent;
-					fillRect (0, 0, this.GUI.w, this.GUI.h);
+					fillRect (0, 0, this.width, this.height);
 					globalAlpha = 1;
-					
-				} 
+
+				}
 			}
-			
+
 		} else {
-	
+
 			// Regular Button
-			
+
 			if (!this.val.press) {
 				fillStyle = this.colors.fill
 				strokeStyle = this.colors.border
@@ -1550,26 +2251,24 @@ button.prototype.draw = function() {
 
 			if (this.val.press && this.mode=="aftertouch") {
 
-				var x = nx.clip(this.clickPos.x,this.GUI.w*.2,this.GUI.w/1.3)
-				var y = nx.clip(this.clickPos.y,this.GUI.h*.2,this.GUI.h/1.3)
+				var x = mt.clip(this.clickPos.x,this.width*.2,this.width/1.3)
+				var y = mt.clip(this.clickPos.y,this.height*.2,this.height/1.3)
 
-				var gradient = this.context.createRadialGradient(x,y,this.GUI.w/6,this.center.x,this.center.y,this.radius*1.3);
+				var gradient = this.context.createRadialGradient(x,y,this.width/6,this.center.x,this.center.y,this.radius*1.3);
 				gradient.addColorStop(0,this.colors.accent);
 				gradient.addColorStop(1,"white");
 
 				strokeStyle = gradient;
-				lineWidth = this.GUI.w/20;
+				lineWidth = this.width/20;
 
 				beginPath()
-					arc(this.center.x, this.center.y, this.radius-this.GUI.w/40, 0, Math.PI*2, true);
+					arc(this.center.x, this.center.y, this.radius-this.width/40, 0, Math.PI*2, true);
 					stroke()
 				closePath()
 
 			}
 		}
 
-		this.drawLabel();
-		
 	}
 }
 
@@ -1599,14 +2298,14 @@ button.prototype.move = function () {
 
 button.prototype.release = function() {
 	this.val["press"] = 0;
-	if (this.mode=="toggle" || this.mode=="aftertouch") { 
+	if (this.mode=="toggle" || this.mode=="aftertouch") {
 		this.transmit(this.val);
 	}
 	this.draw();
 }
 
 
-/** @method setImage 
+/** @method setImage
 	Turns the button into an image button with custom image. Sets the default (unclicked) button image.
 	@param {string} [src] Image source */
 button.prototype.setImage = function(image) {
@@ -1621,7 +2320,7 @@ button.prototype.setHoverImage = function(image) {
 	this.imageHover.src = image;
 }
 
-/** @method setTouchImage 
+/** @method setTouchImage
 	Sets the image that will show when the button is clicked.
 	@param {string} [src] Image source */
 button.prototype.setTouchImage = function(image) {
@@ -1629,7 +2328,8 @@ button.prototype.setTouchImage = function(image) {
 	this.imageTouch.onload = this.draw.bind(this)
 	this.imageTouch.src = image;
 }
-},{"../core/widget":3,"../utils/drawing":5,"util":35}],10:[function(require,module,exports){
+
+},{"../core/widget":7,"../utils/drawing":13,"util":42}],17:[function(require,module,exports){
 var math = require('../utils/math')
 var util = require('util');
 var widget = require('../core/widget');
@@ -1717,13 +2417,13 @@ crossfade.prototype.move = function() {
 	this.draw();
 	this.transmit(this.val);
 }
-},{"../core/widget":3,"../utils/math":6,"util":35}],11:[function(require,module,exports){
+},{"../core/widget":7,"../utils/math":14,"util":42}],18:[function(require,module,exports){
 var math = require('../utils/math');
 var util = require('util');
 var widget = require('../core/widget');
 
-/** 
-	@class dial      
+/**
+	@class dial
 	Circular dial
 	```html
 	<canvas nx="dial"></canvas>
@@ -1732,10 +2432,10 @@ var widget = require('../core/widget');
 */
 
 var dial = module.exports = function(target) {
-	
+
 	this.defaultSize = { width: 100, height: 100 };
 	widget.call(this, target);
-	
+
 	//define unique attributes
 	this.circleSize;
 	this.handleLength;
@@ -1751,10 +2451,7 @@ var dial = module.exports = function(target) {
 	/** @property {float}  responsivity    How much the dial increments on drag. Default: 0.004<br>
 	*/
 	this.responsivity = 0.004;
-	
-	this.aniStart = 0;
-	this.aniStop = 1;
-	this.aniMove = 0.01;
+
 
 	this.lockResize = true;
 
@@ -1775,26 +2472,28 @@ var dial = module.exports = function(target) {
   }
 
 	this.maxdigits = 3
-	this.calculateDigits = nx.calculateDigits
+	this.calculateDigits = mt.calculateDigits
+
+	this.lineWidth = 3
 
 	this.init();
-	
+
 }
 
 util.inherits(dial, widget);
 
 dial.prototype.init = function() {
 
-	this.circleSize = (Math.min(this.center.x, this.center.y));
+	this.circleSize = (Math.min(this.center.x, this.center.y)) - this.lineWidth;
 	this.handleLength = this.circleSize;
-	this.mindim = Math.min(this.GUI.w,this.GUI.h)
-	
+	this.mindim = Math.min(this.width,this.height)
+
 	if (this.mindim<101 || this.mindim<101) {
 		this.accentWidth = this.lineWidth * 1;
 	} else {
 		this.accentWidth = this.lineWidth * 2;
 	}
-	
+
 	this.draw();
 
 }
@@ -1803,21 +2502,85 @@ dial.prototype.draw = function() {
 
 	var normalval = this.normalize(this.val.value)
 
-	//var dial_angle = (((1.0 - this.val.value) * 2 * Math.PI) + (1.5 * Math.PI));
+	var dial_angle = (((1.0 - this.val.value) * 2 * Math.PI) + (1.5 * Math.PI));
 	var dial_position = (normalval + 0.25) * 2 * Math.PI
-	//var point = math.toCartesian(this.handleLength, dial_angle);
+	var point = math.toCartesian(this.handleLength, dial_angle);
 
 	this.erase();
-	
+
+
+	//dial_line
+	//var dial_angle = (((1.0 - self.val) * 2 * Math.PI) + (1.5 * Math.PI));
+	//var dial_position = (self.val + 0.25) * 2 * Math.PI
+	//var point = self.toCartesian(self.dial_position_length, dial_angle);
+
 	with (this.context) {
-		
+		strokeStyle = this.colors.border;
+		fillStyle = this.colors.fill;
+		lineWidth = this.lineWidth;
+
+		//draw main circle
+		beginPath();
+			arc(this.center.x, this.center.y, this.circleSize, 0, Math.PI*2, true);
+			fill();
+			stroke();
+		closePath();
+
+		//draw color fill
+		beginPath();
+			lineWidth = this.accentWidth;
+			arc(this.center.x, this.center.y, this.circleSize , Math.PI* 0.5, dial_position, false);
+			lineTo(this.center.x,this.center.y);
+			globalAlpha = 0.1;
+			fillStyle = this.colors.accent;
+			fill();
+			globalAlpha = 1;
+		closePath();
+
+
+		//draw round accent
+		beginPath();
+			lineWidth = this.accentWidth;
+			arc(this.center.x, this.center.y, this.circleSize , Math.PI* 0.5, dial_position, false);
+			strokeStyle = this.colors.accent;
+			stroke();
+		closePath();
+
+
+		//draw bar accent
+		beginPath();
+			lineWidth = this.accentWidth;
+			strokeStyle = this.colors.accent;
+			moveTo(this.center.x, this.center.y);
+			lineTo(point.x + this.center.x, point.y + this.center.y);
+			stroke();
+		closePath();
+
+		//draw circle in center
+		beginPath();
+			fillStyle = this.colors.accent;
+			arc(this.center.x, this.center.y, this.circleSize/7, 0, Math.PI*2);
+			fill();
+		closePath();
+
+	}
+
+
+
+
+
+
+/*
+
+	with (this.context) {
+
 		lineCap = 'butt';
 		beginPath();
 			lineWidth = this.circleSize/2;
 			arc(this.center.x, this.center.y, this.circleSize-lineWidth/2, Math.PI * 0, Math.PI * 2, false);
 			strokeStyle = this.colors.fill;
 			stroke();
-		closePath(); 
+		closePath();
 
 		//draw round accent
 		lineCap = 'butt';
@@ -1826,106 +2589,57 @@ dial.prototype.draw = function() {
 			arc(this.center.x, this.center.y, this.circleSize-lineWidth/2, Math.PI * 0.5, dial_position, false);
 			strokeStyle = this.colors.accent;
 			stroke();
-		closePath(); 
+		closePath();
 
-		clearRect(this.center.x-this.GUI.w/40,this.center.y,this.GUI.w/20,this.GUI.h/2)
+		clearRect(this.center.x-this.width/40,this.center.y,this.width/20,this.height/2)
 
 		if (normalval > 0) {
 			beginPath();
 			lineWidth = 1.5;
-			moveTo(this.center.x-this.GUI.w/40,this.center.y+this.circleSize/2) //this.radius-this.circleSize/4
-			lineTo(this.center.x-this.GUI.w/40,this.center.y+this.circleSize) //this.radius+this.circleSize/4
+			moveTo(this.center.x-this.width/40,this.center.y+this.circleSize/2) //this.radius-this.circleSize/4
+			lineTo(this.center.x-this.width/40,this.center.y+this.circleSize) //this.radius+this.circleSize/4
 			strokeStyle = this.colors.accent
 			stroke();
 			closePath();
 		}
 
-    //figure out text size
-    //
-    //
-    //
-    this.val.value = math.prune(this.rangify(normalval),3)
-		
-
-		//var valdigits = this.max ? Math.floor(this.max).toString().length : 1
-		//valdigits += this.step ? this.step < 1 ? 1 : 2 : 2
-		this.digits = this.calculateDigits()
-
-		valtextsize = (this.mindim / this.digits.total) * 0.55
-
-		if (valtextsize > 7) {
-
-	    var valtext = this.val.value.toFixed(this.digits.decimals)
-
-			fillStyle = this.colors.borderhl
-	    textAlign = "center"
-	    textBaseline = "middle"
-	    font = valtextsize+"px 'Open Sans'"
-	    fillText(valtext,this.GUI.w/2,this.GUI.h/2);
-
-	  }
-
 	}
 
-	this.drawLabel();
-}
+	*/
 
+}
 
 dial.prototype.click = function(e) {
-	this.val.value = math.prune(this.val.value, 4)
+	var just_angle = math.toPolar(this.clickPos.x-this.center.x,this.clickPos.y-this.center.y).angle
+	just_angle = ( just_angle + Math.PI*1.5) % (Math.PI*2)
+	just_angle = just_angle / (Math.PI*2)
+	this.val.value = just_angle
+//	this.val.value = math.prune(this.val.value, 4)
 	this.transmit(this.val);
-	this.draw();
-	this.aniStart = this.val.value;
-}
-
-
-dial.prototype.move = function() {	
-	var normalval = this.normalize(this.val.value)
-	normalval = math.clip((normalval - (this.deltaMove.y * this.responsivity)), 0, 1);
-	this.val.value = math.prune(this.rangify(normalval), 4)
-	this.transmit(this.val);
-	
 	this.draw();
 }
 
+dial.prototype.move = function() {
+	var just_angle = math.toPolar(this.clickPos.x-this.center.x,this.clickPos.y-this.center.y).angle
+	just_angle = ( just_angle + Math.PI*1.5) % (Math.PI*2)
+	just_angle = just_angle / (Math.PI*2)
+	if (Math.abs(this.val.value - just_angle)<0.5) {
+		this.val.value = just_angle
+	} else {
+		this.val.value = Math.round(this.val.value)
+	}
+	//var normalval = this.normalize(this.val.value)
+	//normalval = math.clip((normalval - (this.deltaMove.y * this.responsivity)), 0, 1);
+	//this.val.value = math.prune(this.rangify(normalval), 4)
+	this.transmit(this.val);
+
+	this.draw();
+}
 
 dial.prototype.release = function() {
-	this.aniStop = this.val.value;
 }
 
-/** @method animate 
-	Animates the dial
-	@param {string} [type] Type of animation. Currently accepts "bounce" (bounces between mousedown and mouserelease points) or "none" */
-dial.prototype.animate = function(aniType) {
-	
-	switch (aniType) {
-		case "bounce":
-			nx.aniItems.push(this.aniBounce.bind(this));
-			break;
-		case "none":
-			nx.aniItems.splice(nx.aniItems.indexOf(this.aniBounce));
-			break;
-	}
-	
-}
-
-dial.prototype.aniBounce = function() {
-	if (!this.clicked) {
-		this.val.value += this.aniMove;
-		if (this.aniStop < this.aniStart) {
-			this.stopPlaceholder = this.aniStop;
-			this.aniStop = this.aniStart;
-			this.aniStart = this.stopPlaceholder;
-		}
-		this.aniMove = math.bounce(this.val.value, this.aniStart, this.aniStop, this.aniMove);	
-		this.draw();
-		this.val.value = math.prune(this.val.value, 4)
-		this.transmit(this.val);
-	}
-}
-
-
-},{"../core/widget":3,"../utils/math":6,"util":35}],12:[function(require,module,exports){
+},{"../core/widget":7,"../utils/math":14,"util":42}],19:[function(require,module,exports){
 var startTime = 0;
 
 var math = require('../utils/math')
@@ -2231,7 +2945,7 @@ envelope.prototype.findNearestNode = function(x, y, nodes) {
 
 	return nearestIndex;
 }
-},{"../core/widget":3,"../utils/math":6,"util":35}],13:[function(require,module,exports){
+},{"../core/widget":7,"../utils/math":14,"util":42}],20:[function(require,module,exports){
 module.exports = {
   button: require('./button'),
   crossfade: require('./crossfade'),
@@ -2256,7 +2970,7 @@ module.exports = {
   waveform: require('./waveform')
 }
 
-},{"./button":9,"./crossfade":10,"./dial":11,"./envelope":12,"./keyboard":14,"./matrix":15,"./message":16,"./meter":17,"./metro":18,"./multislider":19,"./multitouch":20,"./number":21,"./position":22,"./range":23,"./select":24,"./slider":25,"./tabs":26,"./tilt":27,"./toggle":28,"./typewriter":29,"./waveform":30}],14:[function(require,module,exports){
+},{"./button":16,"./crossfade":17,"./dial":18,"./envelope":19,"./keyboard":21,"./matrix":22,"./message":23,"./meter":24,"./metro":25,"./multislider":26,"./multitouch":27,"./number":28,"./position":29,"./range":30,"./select":31,"./slider":32,"./tabs":33,"./tilt":34,"./toggle":35,"./typewriter":36,"./waveform":37}],21:[function(require,module,exports){
 var util = require('util');
 var widget = require('../core/widget');
 var drawing = require('../utils/drawing');
@@ -2591,7 +3305,7 @@ keyboard.prototype.release = function(e) {
 
 
 
-},{"../core/widget":3,"../utils/drawing":5,"../utils/math":6,"util":35}],15:[function(require,module,exports){
+},{"../core/widget":7,"../utils/drawing":13,"../utils/math":14,"util":42}],22:[function(require,module,exports){
 var math = require('../utils/math');
 var drawing = require('../utils/drawing');
 var util = require('util');
@@ -3041,7 +3755,7 @@ matrix.prototype.life = function() {
   return false;
 }
 
-},{"../core/widget":3,"../utils/drawing":5,"../utils/math":6,"util":35}],16:[function(require,module,exports){
+},{"../core/widget":7,"../utils/drawing":13,"../utils/math":14,"util":42}],23:[function(require,module,exports){
 var util = require('util');
 var widget = require('../core/widget');
 
@@ -3113,7 +3827,7 @@ message.prototype.click = function(e) {
 message.prototype.release = function(e) {
 	this.draw();
 }
-},{"../core/widget":3,"util":35}],17:[function(require,module,exports){
+},{"../core/widget":7,"util":42}],24:[function(require,module,exports){
 var util = require('util');
 var drawing = require('../utils/drawing');
 var widget = require('../core/widget');
@@ -3236,7 +3950,7 @@ meter.prototype.draw = function(){
 }
     
     
-},{"../core/widget":3,"../utils/drawing":5,"util":35}],18:[function(require,module,exports){
+},{"../core/widget":7,"../utils/drawing":13,"util":42}],25:[function(require,module,exports){
 var math = require('../utils/math')
 var util = require('util');
 var widget = require('../core/widget');
@@ -3350,7 +4064,7 @@ metro.prototype.advance = function() {
 metro.prototype.customDestroy = function() {
 	nx.removeAni(this.advance.bind(this))
 }
-},{"../core/widget":3,"../utils/math":6,"util":35}],19:[function(require,module,exports){
+},{"../core/widget":7,"../utils/math":14,"util":42}],26:[function(require,module,exports){
 var math = require('../utils/math')
 var util = require('util');
 var widget = require('../core/widget');
@@ -3505,7 +4219,7 @@ multislider.prototype.setSliderValue = function(slider,value) {
 	this.transmit(msg);
 }
 
-},{"../core/widget":3,"../utils/math":6,"util":35}],20:[function(require,module,exports){
+},{"../core/widget":7,"../utils/math":14,"util":42}],27:[function(require,module,exports){
 var math = require('../utils/math');
 var drawing = require('../utils/drawing');
 var util = require('util');
@@ -3710,13 +4424,13 @@ multitouch.prototype.sendit = function() {
 	}
 	this.transmit(this.val);
 }
-},{"../core/widget":3,"../utils/drawing":5,"../utils/math":6,"util":35}],21:[function(require,module,exports){
+},{"../core/widget":7,"../utils/drawing":13,"../utils/math":14,"util":42}],28:[function(require,module,exports){
 var math = require('../utils/math')
 var util = require('util');
 var widget = require('../core/widget');
 
-/** 
-	@class number      
+/**
+	@class number
 	Number box
 	```html
 	<canvas nx="number"></canvas>
@@ -3727,12 +4441,12 @@ var widget = require('../core/widget');
 var number = module.exports = function (target) {
 	this.defaultSize = { width: 50, height: 20 };
 	widget.call(this, target);
-	
-	/** @property {object}  val    
+
+	/** @property {object}  val
 		| &nbsp; | data
 		| --- | ---
 		| *value* | Number value
-		
+
 		```js
 			// Sets number1.val.value to 20
 			number1.set({
@@ -3775,7 +4489,7 @@ var number = module.exports = function (target) {
 	/** @property {float}  rate   Sensitivity of dragging. Default is .25
 
 		```js
-		    // For fine tuning 
+		    // For fine tuning
 			number1.rate = .001;
 		```
 	*/
@@ -3787,18 +4501,18 @@ var number = module.exports = function (target) {
 			// For an int counter
 			number1.decimalPlaces = 0;
 		```
-	*/ 
-	this.decimalPlaces = 3;
+	*/
+	this.decimalPlaces = 2;
 	this.lostdata = 0;
 	this.actual = 0;
 
 	// SWAP
-	// 
+	//
 	this.canvas.ontouchstart = null;
 	this.canvas.ontouchmove = null;
 	this.canvas.ontouchend = null;
 
-	var htmlstr = '<input type="text" nx="number" id="'+this.canvasID+'" style="height:'+this.GUI.h+'px;width:'+this.GUI.w+'px;font-size:'+this.GUI.h/2+'px;"></input><canvas height="1px" width="1px" style="display:none"></canvas>'                   
+	var htmlstr = '<input type="text" nx="number" id="'+this.canvasID+'" style="height:'+this.height+'px;width:'+this.width+'px;font-size:'+this.height/2+'px;"></input><canvas height="1px" width="1px" style="display:none"></canvas>'
 	var canv = this.canvas
 	var cstyle = this.canvas.style
 	var parent = canv.parentNode
@@ -3814,31 +4528,26 @@ var number = module.exports = function (target) {
  			}
   }
 
-  if (this.label) {
-	  var labeldiv = document.createElement("div")
-	  labeldiv.innerHTML = this.label
-	  labeldiv.style.fontSize = this.labelSize/2.8+"px"
-	  labeldiv.style.fontFamily = this.labelFont
-	  labeldiv.style.textAlign = this.labelAlign
-	  labeldiv.style.lineHeight = this.labelSize+"px"
-	  labeldiv.style.width = this.GUI.w+"px"
-	  labeldiv.style.color = nx.colors.black
-	  labeldiv.className = "nxlabel"
-	  newdiv.appendChild(labeldiv)
-  }
 
 	this.canvas = document.getElementById(this.canvasID);
-	this.canvas.style.height = this.GUI.h + "px"
-	this.canvas.style.fontSize = this.GUI.h * .6 + "px"
+	this.canvas.style.height = this.height + "px"
+	this.canvas.style.fontSize = this.height * .6 + "px"
 	this.canvas.style.textAlign = "left"
 	this.canvas.style.backgroundColor = this.colors.fill
 	this.canvas.style.highlight = this.colors.fill
 	this.canvas.style.border = "none"
 	this.canvas.style.outline = "none"
-	this.canvas.style.padding = "4px 10px"
+	this.canvas.style.padding = "4px 5px"
 	this.canvas.style.cursor = "pointer"
 	this.canvas.style.display = "block"
+	//this.canvas.style.userSelect = "none !important"
+	//this.canvas.style.mozUserSelect = "none !important"
+	//this.canvas.style.webkitUserSelect = "none !important"
 	this.canvas.className = ""
+
+
+
+
 
 	this.canvas.addEventListener("blur", function () {
 	  //this.canvas.style.border = "none";
@@ -3869,9 +4578,9 @@ var number = module.exports = function (target) {
 	  }
 	}.bind(this));
 
-	
+
   // Setup interaction
-  if (nx.isTouchDevice) {
+  if (mt.isTouchDevice) {
     this.canvas.ontouchstart = this.preTouch;
     this.canvas.ontouchmove = this.preTouchMove;
     this.canvas.ontouchend = this.preTouchRelease;
@@ -3885,6 +4594,16 @@ var number = module.exports = function (target) {
   this.canvas.style.webkitUserSelect = "none !important";
 
 
+	var css = '#'+this.canvasID+'::selection{ background-color: transparent }';
+	style = document.createElement('style');
+
+	if (style.styleSheet) {
+	    style.styleSheet.cssText = css;
+	} else {
+	    style.appendChild(document.createTextNode(css));
+	}
+
+	document.getElementsByTagName('head')[0].appendChild(style);
 
 
 
@@ -3901,7 +4620,7 @@ number.prototype.init = function() {
 
 number.prototype.draw = function() {
 
-	this.canvas.value = this.val.value;
+	this.canvas.value = mt.prune(this.val.value,this.decimalPlaces);
 
 }
 
@@ -3935,7 +4654,7 @@ number.prototype.release = function(e) {
 	}
 }
 
-},{"../core/widget":3,"../utils/math":6,"util":35}],22:[function(require,module,exports){
+},{"../core/widget":7,"../utils/math":14,"util":42}],29:[function(require,module,exports){
 var math = require('../utils/math')
 var util = require('util');
 var widget = require('../core/widget');
@@ -4145,7 +4864,7 @@ position.prototype.aniBounce = function() {
 position.prototype.customDestroy = function() {
 	nx.removeAni(this.aniBounce);
 }
-},{"../core/widget":3,"../utils/math":6,"util":35}],23:[function(require,module,exports){
+},{"../core/widget":7,"../utils/math":14,"util":42}],30:[function(require,module,exports){
 var util = require('util');
 var widget = require('../core/widget');
 var math = require('../utils/math')
@@ -4344,7 +5063,7 @@ range.prototype.move = function() {
 
 	}
 }
-},{"../core/widget":3,"../utils/math":6,"util":35}],24:[function(require,module,exports){
+},{"../core/widget":7,"../utils/math":14,"util":42}],31:[function(require,module,exports){
 var util = require('util');
 var widget = require('../core/widget');
 
@@ -4457,7 +5176,7 @@ select.prototype.draw = function() {
     this.canvas.style.border = "solid 2px "+this.colors.border;
 
 }
-},{"../core/widget":3,"util":35}],25:[function(require,module,exports){
+},{"../core/widget":7,"util":42}],32:[function(require,module,exports){
 var math = require('../utils/math')
 var util = require('util');
 var widget = require('../core/widget');
@@ -4466,17 +5185,14 @@ var widget = require('../core/widget');
 	@class slider
 	Slider (vertical or horizontal)
 	```html
-	<canvas nx="slider"></canvas>
+	<canvas mt="slider"></canvas>
 	```
-	<canvas nx="slider" style="margin-left:25px"></canvas>
+	<canvas mt="slider" style="margin-left:25px"></canvas>
 */
 
 var slider = module.exports = function (target) {
-	console.log(1)
 	this.defaultSize = { width: 35, height: 110 };
-	console.log(2)
 	widget.call(this, target);
-	console.log(3)
 
   if (this.canvas.getAttribute("min")!=null) {
     this.min = parseFloat(this.canvas.getAttribute("min"));
@@ -4495,19 +5211,17 @@ var slider = module.exports = function (target) {
   }
 
 
-	console.log(2)
-
 	/** @property {object}  val
 		| &nbsp; | data
 		| --- | ---
 		| *value* | Slider value (float 0-1)
 	*/
-	this.val.value = nx.scale(0.7,0,1,this.min,this.max)
+	this.val.value = mt.scale(0.7,0,1,this.min,this.max)
 
 
 	/** @property {string}  mode   Set "absolute" or "relative" mode. In absolute mode, slider will jump to click/touch position. In relative mode, it will not.
 	```js
-	nx.onload = function() {
+	mt.onload = function() {
 	&nbsp; // Slider will not jump to touch position.
 	&nbsp; slider1.mode = "relative"
 	}
@@ -4518,7 +5232,7 @@ var slider = module.exports = function (target) {
 	/** @property {boolean}  hslider   Whether or not the slider should be horizontal. This is set to true automatically if the canvas is wider than it is tall. To override the default decision, set this property to true to create a horizontal slider, or false to create a vertical slider.
 
 	```js
-	nx.onload = function() {
+	mt.onload = function() {
 	&nbsp; //forces horizontal slider
 	&nbsp; slider1.hslider = true
 	&nbsp; slider1.draw();
@@ -4535,7 +5249,7 @@ var slider = module.exports = function (target) {
 
 	this.maxdigits = 3
 
-	this.calculateDigits = nx.calculateDigits;
+	this.calculateDigits = mt.calculateDigits;
 
 	this.init();
 }
@@ -4543,15 +5257,12 @@ util.inherits(slider, widget);
 
 slider.prototype.init = function() {
 
-	console.log("init called")
-
 	//decide if hslider or vslider
 	if (this.height>=this.width) {
 		this.hslider = false;
 	} else {
 		this.hslider = true;
 	}
-
 
 	this.draw();
 }
@@ -4580,7 +5291,7 @@ slider.prototype.draw = function() {
 			fillStyle = this.colors.accent;
 			fillRect(x1,y1,x2-x1,y2-y1);
 
-			//text
+		/*	//text
 			var valtextsize = (this.width / this.digits.total) * 1.2
 			if (valtextsize > 6) {
 
@@ -4595,7 +5306,7 @@ slider.prototype.draw = function() {
 		    var textx = this.width/2
 		    var valtextAlign = "center"
 		    var valtextBaseline = "middle"
-			}
+			} */
 
 		} else {
 
@@ -4607,7 +5318,7 @@ slider.prototype.draw = function() {
 			fillStyle = this.colors.accent
 			fillRect(x1,y1,x2-x1,y2-y1)
 
-			//text
+	/*		//text
 			var valtextsize = this.height/2
 			if (valtextsize > 6) {
 
@@ -4622,16 +5333,16 @@ slider.prototype.draw = function() {
 		    var texty = this.height/2
 		    var valtextAlign = "left"
 		    var valtextBaseline = "middle"
-			}
+			} */
 
 		}
 
 
-    var valtext = this.val.value.toFixed(this.digits.decimals)
+  /*   var valtext = this.val.value.toFixed(this.digits.decimals)
     textBaseline = valtextBaseline
 		textAlign = valtextAlign
     font = valtextsize+"px 'Open Sans'"
-    fillText(valtext,textx,texty);
+    fillText(valtext,textx,texty); */
 
 
 		if (this.label) {
@@ -4682,7 +5393,7 @@ slider.prototype.move = function() {
 	this.transmit(this.val);
 }
 
-},{"../core/widget":3,"../utils/math":6,"util":35}],26:[function(require,module,exports){
+},{"../core/widget":7,"../utils/math":14,"util":42}],33:[function(require,module,exports){
 var math = require('../utils/math')
 var util = require('util');
 var widget = require('../core/widget');
@@ -4774,7 +5485,7 @@ tabs.prototype.click = function() {
 	this.transmit(this.val)
 	this.draw();
 }
-},{"../core/widget":3,"../utils/math":6,"util":35}],27:[function(require,module,exports){
+},{"../core/widget":7,"../utils/math":14,"util":42}],34:[function(require,module,exports){
 var math = require('../utils/math')
 var util = require('util');
 var widget = require('../core/widget');
@@ -4911,13 +5622,13 @@ tilt.prototype.customDestroy = function() {
 	window.removeEventListener("deviceorientation",this.boundChromeTilt,false);
 	window.removeEventListener("mozOrientation",this.boundMozTilt,false);
 }
-},{"../core/widget":3,"../utils/math":6,"util":35}],28:[function(require,module,exports){
+},{"../core/widget":7,"../utils/math":14,"util":42}],35:[function(require,module,exports){
 var drawing = require('../utils/drawing');
 var util = require('util');
 var widget = require('../core/widget');
 
-/** 
-	@class toggle      
+/**
+	@class toggle
 	On/off toggle
 	```html
 	<canvas nx="toggle"></canvas>
@@ -4929,7 +5640,7 @@ var toggle = module.exports = function (target) {
 	this.defaultSize = { width: 50, height: 50 };
 	widget.call(this, target);
 
-	/** @property {object}  val  Object containing the core interactive aspects of the widget, which are also its data output. Has the following properties: 
+	/** @property {object}  val  Object containing the core interactive aspects of the widget, which are also its data output. Has the following properties:
 		| &nbsp; | data
 		| --- | ---
 		| *value*| 1 if on, 0 if off
@@ -4946,14 +5657,12 @@ toggle.prototype.init = function() {
 }
 
 toggle.prototype.draw = function() {
-	
+
 	this.erase()
 
 	with (this.context) {
 		if (this.val.value) {
 			fillStyle = this.colors.accent;
-		//	strokeStyle = this.colors.white;
-		//	strokeAlpha = 0.3
 			strokeStyle = this.colors.accenthl;
 			strokeAlpha = 1
 		} else {
@@ -4961,17 +5670,14 @@ toggle.prototype.draw = function() {
 			strokeStyle = this.colors.border;
 			strokeAlpha = 1
 		}
-		lineWidth = Math.sqrt(this.GUI.w)/2;
-		//lineWidth = this.GUI.w / 20;
+		lineWidth = Math.sqrt(this.width)/2;
 
-		fillRect(0,0,this.GUI.w,this.GUI.h);
+		fillRect(0,0,this.width,this.height);
 		globalAlpha = strokeAlpha
-		strokeRect(lineWidth/2,lineWidth/2,this.GUI.w-lineWidth,this.GUI.h-lineWidth);
+		strokeRect(lineWidth/2,lineWidth/2,this.width-lineWidth,this.height-lineWidth);
 		globalAlpha = 1
 	}
 
-	this.drawLabel();
-	
 }
 
 toggle.prototype.click = function() {
@@ -4983,7 +5689,8 @@ toggle.prototype.click = function() {
 	this.draw();
 	this.transmit(this.val);
 }
-},{"../core/widget":3,"../utils/drawing":5,"util":35}],29:[function(require,module,exports){
+
+},{"../core/widget":7,"../utils/drawing":13,"util":42}],36:[function(require,module,exports){
 var drawing = require('../utils/drawing');
 var util = require('util');
 var widget = require('../core/widget');
@@ -5231,7 +5938,7 @@ typewriter.prototype.customDestroy = function() {
 	window.removeEventListener("keydown", this.boundType);
 	window.removeEventListener("keyup", this.boundUntype);
 }
-},{"../core/widget":3,"../utils/drawing":5,"util":35}],30:[function(require,module,exports){
+},{"../core/widget":7,"../utils/drawing":13,"util":42}],37:[function(require,module,exports){
 var util = require('util');
 var widget = require('../core/widget');
 var math = require('../utils/math')
@@ -5596,7 +6303,7 @@ waveform.prototype.move = function() {
 	this.draw();
 
 }
-},{"../core/widget":3,"../utils/math":6,"util":35}],31:[function(require,module,exports){
+},{"../core/widget":7,"../utils/math":14,"util":42}],38:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -5899,7 +6606,7 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}],32:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
@@ -5964,7 +6671,7 @@ process.chdir = function (dir) {
     throw new Error('process.chdir is not supported');
 };
 
-},{}],33:[function(require,module,exports){
+},{}],40:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -5989,14 +6696,14 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],34:[function(require,module,exports){
+},{}],41:[function(require,module,exports){
 module.exports = function isBuffer(arg) {
   return arg && typeof arg === 'object'
     && typeof arg.copy === 'function'
     && typeof arg.fill === 'function'
     && typeof arg.readUInt8 === 'function';
 }
-},{}],35:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
 (function (process,global){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -6586,7 +7293,7 @@ function hasOwnProperty(obj, prop) {
 }
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":34,"_process":32,"inherits":33}],36:[function(require,module,exports){
+},{"./support/isBuffer":41,"_process":39,"inherits":40}],43:[function(require,module,exports){
 var hasOwn = Object.prototype.hasOwnProperty;
 var toStr = Object.prototype.toString;
 var undefined;
@@ -6677,7 +7384,7 @@ module.exports = function extend() {
 };
 
 
-},{}],37:[function(require,module,exports){
+},{}],44:[function(require,module,exports){
 /* Web Font Loader v1.6.26 - (c) Adobe Systems, Google. License: Apache 2.0 */(function(){function aa(a,b,c){return a.call.apply(a.bind,arguments)}function ba(a,b,c){if(!a)throw Error();if(2<arguments.length){var d=Array.prototype.slice.call(arguments,2);return function(){var c=Array.prototype.slice.call(arguments);Array.prototype.unshift.apply(c,d);return a.apply(b,c)}}return function(){return a.apply(b,arguments)}}function p(a,b,c){p=Function.prototype.bind&&-1!=Function.prototype.bind.toString().indexOf("native code")?aa:ba;return p.apply(null,arguments)}var q=Date.now||function(){return+new Date};function ca(a,b){this.a=a;this.m=b||a;this.c=this.m.document}var da=!!window.FontFace;function t(a,b,c,d){b=a.c.createElement(b);if(c)for(var e in c)c.hasOwnProperty(e)&&("style"==e?b.style.cssText=c[e]:b.setAttribute(e,c[e]));d&&b.appendChild(a.c.createTextNode(d));return b}function u(a,b,c){a=a.c.getElementsByTagName(b)[0];a||(a=document.documentElement);a.insertBefore(c,a.lastChild)}function v(a){a.parentNode&&a.parentNode.removeChild(a)}
 function w(a,b,c){b=b||[];c=c||[];for(var d=a.className.split(/\s+/),e=0;e<b.length;e+=1){for(var f=!1,g=0;g<d.length;g+=1)if(b[e]===d[g]){f=!0;break}f||d.push(b[e])}b=[];for(e=0;e<d.length;e+=1){f=!1;for(g=0;g<c.length;g+=1)if(d[e]===c[g]){f=!0;break}f||b.push(d[e])}a.className=b.join(" ").replace(/\s+/g," ").replace(/^\s+|\s+$/,"")}function y(a,b){for(var c=a.className.split(/\s+/),d=0,e=c.length;d<e;d++)if(c[d]==b)return!0;return!1}
 function z(a){if("string"===typeof a.f)return a.f;var b=a.m.location.protocol;"about:"==b&&(b=a.a.location.protocol);return"https:"==b?"https:":"http:"}function ea(a){return a.m.location.hostname||a.a.location.hostname}

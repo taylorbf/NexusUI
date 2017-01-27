@@ -16,26 +16,110 @@
 			Parts of this toolkit were written by many collaborators, including Andrew Bernstein, Jesse Allison, and Sebastien Piquemal. Thank you!</div>
 		</div>
 
-		<div class="center-block" style="margin-top:50px">
-			<div id="synth1volume" mt="slider"></div>
-		</div>
+
+<div class="center-block" style="border:solid 0px;font-weight:bold;margin-top:20px">
+	Interfaces:
+</div>
+<pre><code class="center-block">
+	vol = mt.slider({
+					size: [ 200, 30 ]
+					label: "Volume",
+					range: [ -100, 5 ],
+					event: function(v) {
+					 	synth1.amp.rampTo(v)
+					}
+				})
 
 
+	// or
 
-		<code class="center-block">
-			HTML
-		</code>
+	vol = mt.slider()
+	vol.size(200,30)
+	vol.label("Volume")
+	vol.range([-100,5])
+	vol.event(function() {
+		synth1.amp.rampTo(v)
+	})
 
-		<code class="center-block">
-			JS
-		</code>
+	</optgroup>
+
+</code></pre>
+
+<div class="center-block" style="border:solid 0px;font-weight:bold;margin-top:20px">
+	Tuning:
+</div>
+<pre><code class="center-block">
+	mt.tune.scale("just-intonation")
+	mt.tune.scale([1/1, 9/8, 4/3, 3/2, 15/8])
+
+	mt.tune.note( degree, octave)
+
+	mt.tune.chord( [5,1], "+2", "+4")
+	mt.tune.triad( [5,1] ) // returns array of 3 frequencies
+	mt.tune.fifth( [5,1] ) // returns array of 2 frequencies? or returns fifth only?
+</code></pre>
+
+<div class="center-block" style="border:solid 0px;font-weight:bold;margin-top:20px">
+	Timing:
+</div>
+<pre><code class="center-block">
+	rhythm = mt.clock.interval(50, function() {
+
+	})
+	rhythm.ms = 100
+	rhythm.stop()
+	rhythm.pattern = [0,1,1,1,0]
+	rhythm.event = function() {
+
+	}
+
+
+	single = mt.clock.event(200, function() {
+
+	})
+	single.clear()
+
+
+	mt.clock.sync( rhythm1, rhythm2 )
+
+</code></pre>
+
+<div class="center-block" style="border:solid 0px;font-weight:bold;margin-top:20px">
+	Helpers:
+</div>
+<pre><code class="center-block">
+	mt.counter(0,10,"up-down")
+	beat = mt.count()
+
+	mt.pick()
+
+	mt.random()
+
+	mt.ri()
+
+	mt.rf()
+
+	mt.pick(2,5,8)
+
+	mt.scale(value,min,max,newmin,newmax)
+
+	matrix = mt.matrix([
+		[0,1,2],
+		[2,1,0]
+	])
+	matrix.col(1)
+	matrix.row(1)
+	matrix.getColForIndex(4)
+	matrix.getRowForIndex(4)
+	matrix.nextCol()
+	matrix.update(0,2,2) // place number 0 at x 2 y 2
+
+
+</code></pre>
 
 	</body>
 	<script>
 
-
-		var synth = new Tone.PolySynth(6, Tone.FMSynth).toMaster()
-		synth.set("volume", -20)
 
 		function init() {
 			mt.init()
@@ -90,6 +174,15 @@
 				margin:5px auto;
 				padding:10px;
 				display:block;
+			}
+			pre {
+				-moz-tab-size: 2;
+		    -o-tab-size:   2;
+	    	tab-size:      2;
+			}
+			code {
+				font-weight:bold;
+				font-size:12pt;
 			}
 		</style>
 </html>

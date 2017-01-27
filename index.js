@@ -4,23 +4,27 @@ var drawingUtils = require('./lib/utils/drawing');
 var mathUtils = require('./lib/utils/math');
 var extend = require('extend');
 var WebFont = require('webfontloader');
+var Tune = require('./lib/core/tuning')
 
 /************************************************
-*  INSTANTIATE NX MANAGER AND CREATE ELEMENTS   *
+*  INSTANTIATE mt MANAGER AND CREATE ELEMENTS   *
 ************************************************/
 
-window.nx = new manager();
-window.nx.onload = function() {};
-window.nx = extend(window.nx,domUtils)
-window.nx = extend(window.nx,drawingUtils)
-window.nx = extend(window.nx,mathUtils)
+window.mt = new manager();
+window.mt.onload = function() {};
+window.mt = extend(window.mt,domUtils)
+window.mt = extend(window.mt,drawingUtils)
+window.mt = extend(window.mt,mathUtils)
+window.mt = extend(window.mt, require('./lib/core/interval') )
+window.mt = extend(window.mt, require('./lib/core/control') )
+window.mt.tune = new Tune()
 
 // change something.
 
 /* this onload function turns canvases into nexus elements,
  * using the canvas's id as its var name */
 
-nx.init = function() {
+mt.init = function() {
 /*  try {
     WebFont.load({
       google: {
@@ -31,17 +35,17 @@ nx.init = function() {
     console.log("font not loaded")
   } */
 
-  nx.addStylesheet();
+  //mt.addStylesheet();
 
   // get all canvases on the page and add them to the manager
-  var allcanvi = document.getElementsByTagName("canvas");
-  for (i=0;i<allcanvi.length;i++) nx.transform(allcanvi[i]);
+  var alldivs = document.getElementsByTagName("div");
+  for (i=0;i<alldivs.length;i++) mt.transform(alldivs[i]);
 
-  if (nx.isTouchDevice) {
-    document.addEventListener("touchmove", nx.blockMove, true);
-    document.addEventListener("touchstart", nx.blockMove, true);
+  if (mt.isTouchDevice) {
+    document.addEventListener("touchmove", mt.blockMove, true);
+    document.addEventListener("touchstart", mt.blockMove, true);
   }
 
-  nx.onload();
+  mt.onload();
 
 };
